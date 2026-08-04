@@ -1806,7 +1806,7 @@ async saveCustomerToSupabase(orderData, totalAmount) {
                         {
                             id: "water",
                             name: "Water",
-                            price: 300,
+                            price: 500,
                             category: "drinks",
                             stock: 100,
                             lowStock: 20
@@ -2482,7 +2482,7 @@ renderCategories() {
     updateOrderDisplay() {
         // Add this at the beginning of updateOrderDisplay() for debugging
 console.log('Order type:', this.orderType);
-console.log('Takeaway fee:', this.orderType === 'takeaway' ? 300 : 0);
+console.log('Takeaway fee:', this.orderType === 'takeaway' ? 500 : 0);
     const orderItemsContainer = document.getElementById('orderItems');
     const subtotalElement = document.getElementById('subtotal');
     const taxElement = document.getElementById('tax');
@@ -2945,7 +2945,7 @@ async updateStaffSalesInSupabase() {
         receipt += `TOTAL                 ₦${total.toLocaleString().padStart(8)}\n`;
         receipt += '══════════════════════════════\n';
         if (this.orderType === 'takeaway') {
-    receipt += `Takeaway Fee:       ₦300\n`;
+    receipt += `Takeaway Fee:       ₦500\n`;
 }
 receipt += '══════════════════════════════\n';
         receipt += 'Thank you for your order!\n';
@@ -6401,7 +6401,7 @@ function addTakeawayFee() {
     const feeItem = {
         id: 9999,
         name: 'Takeaway Fee',
-        price: 300,
+        price: 500,
         quantity: 1,
         category: 'fee',
         stock: 999,
@@ -6409,7 +6409,7 @@ function addTakeawayFee() {
     };
     
     pos.addToOrder(feeItem);
-    showNotification('✓ Takeaway fee of ₦300 added', 'success');
+    showNotification('✓ Takeaway fee of ₦500 added', 'success');
 }
 
 function clearAllLocalOrders() {
