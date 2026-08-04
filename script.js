@@ -6098,14 +6098,16 @@ function addMenuSyncToSystemTab() {
     const systemContent = systemTab.querySelector('div');
     if (!systemContent) return;
     
+    // Check if already added
     if (document.getElementById('menuSyncSection')) return;
     
-    // Get last sync time
+    // Get last sync time from window.menuSync if available
     let lastSyncText = 'Not synced yet';
     if (window.menuSync && window.menuSync.lastSync) {
-        lastSyncText = 'Last sync: ' + window.menuSync.lastSync.toLocaleTimeString() + ' (from Supabase)';
+        lastSyncText = 'Last sync: ' + window.menuSync.lastSync.toLocaleTimeString();
     }
     
+    // Get saved URL or use default
     const savedUrl = localStorage.getItem('customMenuUrl') || window.location.origin + '/menu.json';
     
     const menuSyncHTML = `
@@ -6113,19 +6115,22 @@ function addMenuSyncToSystemTab() {
             <h3>📋 Menu Auto-Sync</h3>
             <div style="margin-top: 15px;">
                 <div class="form-group">
-                    <label for="menuUrl">Sync Source</label>
-                    <div style="background: #d4edda; padding: 10px; border-radius: 8px; color: #155724; font-weight: bold;">
-                        ✅ Syncing directly from Supabase Database (Live)
-                    </div>
-                    <small class="form-text text-muted">Menu items added via Admin Dashboard will appear automatically after sync</small>
+                    <label for="menuUrl">Menu JSON URL</label>
+                    <input type="url" id="menuUrl" class="form-control" 
+                           value="${savedUrl}" 
+                           placeholder="https://your-menu-site.com/menu.json">
+                    <small class="form-text text-muted">Host your menu JSON file here</small>
                 </div>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn-success" onclick="manualMenuSync()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                        🔄 Sync Now (from Supabase)
+                    <button class="btn-primary" onclick="updateMenuUrl()">
+                        📍 Update URL
                     </button>
-                    <button class="btn-secondary" onclick="testMenuUrl()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                        🔍 Test Connection
+                    <button class="btn-success" onclick="manualMenuSync()">
+                        🔄 Sync Now
+                    </button>
+                    <button class="btn-secondary" onclick="testMenuUrl()">
+                        🔍 Test URL
                     </button>
                 </div>
                 
@@ -6138,18 +6143,34 @@ function addMenuSyncToSystemTab() {
     `;
     
     systemContent.insertAdjacentHTML('beforeend', menuSyncHTML);
+
+    // Add Force Sync button
+    const forceSyncButton = `
+        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px;">
+            <h4>⚠️ Force Sync Local Orders</h4>
+            <p style="font-size: 12px; margin-bottom: 10px;">Use this if you have orders saved locally on this computer that are not in the cloud.</p>
+            <button class="btn-warning" onclick="forceSyncLocalOrders()" style="background: #ff9800; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer;">
+                🔄 Force Sync All Local Orders to Cloud
+            </button>
+        </div>
+    `;
+    document.getElementById('menuSyncSection')?.insertAdjacentHTML('afterend', forceSyncButton);
+
+    // Add manual sync button
+    const manualSyncButton = `
+        <div style="margin-top: 15px;">
+            <button class="btn-secondary" onclick="pos.autoSyncLocalOrders()" style="width: 100%; padding: 10px; cursor: pointer;">
+                🔄 Sync Local Orders to Cloud
+            </button>
+            <small style="display: block; text-align: center; margin-top: 5px;">Upload any unsynced local orders to Supabase</small>
+        </div>
+    `;
+    document.getElementById('menuSyncSection')?.insertAdjacentHTML('afterend', manualSyncButton);
 }
 
-    // Add this to your addMenuSyncToSystemTab function
-const forceSyncButton = `
-    <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px;">
-        <h4>⚠️ Force Sync Local Orders</h4>
-        <p style="font-size: 12px; margin-bottom: 10px;">Use this if you have orders saved locally on this computer that are not in the cloud.</p>
-        <button class="btn-warning" onclick="forceSyncLocalOrders()" style="background: #ff9800; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%;">
-            🔄 Force Sync All Local Orders to Cloud
-        </button>
-    </div>
-`;
+// =============================================
+// FORCE SYNC LOCAL ORDERS - MOVED OUTSIDE
+// =============================================
 async function forceSyncLocalOrders() {
     const localOrders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
     
@@ -6205,20 +6226,10 @@ async function forceSyncLocalOrders() {
     // Also sync customers
     if (synced > 0) {
         showNotification('🔄 Syncing customers...', 'info');
-        await pos.syncCustomersFromOrders();
+        if (pos && typeof pos.syncCustomersFromOrders === 'function') {
+            await pos.syncCustomersFromOrders();
+        }
     }
-}
-
-    // Add this inside addMenuSyncToSystemTab function, after the menu sync HTML
-const manualSyncButton = `
-    <div style="margin-top: 15px;">
-        <button class="btn-secondary" onclick="pos.autoSyncLocalOrders()" style="width: 100%; padding: 10px;">
-            🔄 Sync Local Orders to Cloud
-        </button>
-        <small style="display: block; text-align: center; margin-top: 5px;">Upload any unsynced local orders to Supabase</small>
-    </div>
-`;
-document.getElementById('menuSyncSection')?.insertAdjacentHTML('afterend', manualSyncButton);
 }
 
 // Update Menu URL function
