@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UrbanCity POS</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load Supabase from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <!-- QZ Tray Libraries from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.1.4/dist/js/qz-tray.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.1.4/dist/js/rsvp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.1.4/dist/js/sha-256.min.js"></script>
+</head>
+<body>
+
+    <!-- Animated Background -->
+    <div class="animated-bg-container">
+        <div class="animated-bg"></div>
+    </div> 
+
+    <!-- Session Status Indicator -->
+    <div id="sessionStatus" class="session-status" style="display: none;">
+        🔄 Restoring session...
+    </div>
+
+    <!-- Printer Status -->
+    <div id="printerStatusIndicator" class="printer-status" style="display: none;">
+        🖨️ Printer: Connecting...
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>
+                    <img src="logo.jpg" alt="UrbanCity Restaurant" style="height: 1.2em; vertical-align: middle;">
+                    UrbanCity Restaurant
+                </h1>
+                <p>Grab-and-Go Restaurant System</p>
+            </div>
+            <div class="login-form">
+                <h2>Staff Login</h2>
+                <div class="input-group">
+                    <label>Staff Member:</label>
+                    <select id="staffSelect">
+                        <option value="">Select Your Name</option>
+                        <!-- Staff options will be loaded dynamically -->
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>PIN Code:</label>
+                    <input type="password" id="staffPin" placeholder="Enter 4-digit PIN" maxlength="4" inputmode="numeric">
+                </div>
+                <div class="order-type-selector" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Order Type:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="takeawayBtn" class="order-type-btn active" onclick="setOrderType('takeaway')">
+                            🏃 Takeaway
+                        </button>
+                        <button id="deliveryBtn" class="order-type-btn" onclick="setOrderType('delivery')">
+                            🚚 Delivery
+                        </button>
+                    </div>
+                </div>
+                <button class="login-btn" onclick="staffLogin()">Login to POS System</button>
+                <div class="login-info">
+                    <p>🏃 Fast transactions only</p>
+                    <p>📦 Takeaway & delivery only</p>
+                    <p>💰 Auto-inventory tracking</p>
+                    <p>☁️ Supabase Cloud Backend</p>
+                    <p>🖨️ Xprinter Receipt Printing</p>
+                </div>
+                <div class="login-status" id="loginStatus" style="margin-top: 10px; padding: 8px; border-radius: 5px; display: none;">
+                    <!-- Status messages will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main POS Screen -->
+    <div id="posScreen" class="screen">
+        <header class="professional-header">
+            <div class="header-left">
+                <h1>
+                    <img src="logo.jpg" alt="UrbanCity Restaurant POS" style="height: 1.2em; vertical-align: middle;">
+                    UrbanCity Restaurant POS
+                </h1>
+                <div class="session-info">
+                    <span class="staff-badge">👤 <span id="currentStaff">Not Logged In</span></span>
+                    <span class="time-display" id="currentTime"></span>
+                    <span class="order-type-badge" id="orderTypeBadge" style="background: #28a745; color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">🏃 Takeaway</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- PRINTER SETUP BUTTON -->
+                <button onclick="showPrinterSetupModal()" class="btn-secondary" style="margin-right: 10px;">
+                    🖨️ Printer Setup
+                </button>
+                
+                <!-- EDIT DISPLAY NAME BUTTON -->
+                <button class="edit-display-name-btn" onclick="showEditDisplayNameModal()" style="margin-right: 10px;">
+                    ✏️ Edit Display Name
+                </button>
+                
+                <div class="active-orders">
+                    <span class="order-count" id="activeOrdersCount">0</span> Orders Today
+                </div>
+                <button class="manager-btn" id="managerDashboardBtn" onclick="openManagerDashboard()">
+                    📊 Manager Dashboard
+                </button>
+                <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            </div>
+        </header>
+
+        
+
+        <div class="professional-layout">
+<!-- Left Panel - Tables & Recent Orders -->
+<div class="tables-section">
+    <div class="section-header">
+        <h3>🪑 Table Usage Today</h3>
+    </div>
+    <div class="tables-grid" id="tablesGrid">
+        <!-- Tables will be auto-generated here -->
+    </div>
+    
+    <!-- ✅ ADD THIS RECENT ORDERS SECTION -->
+    <div class="recent-orders-section">
+        <h4>📋 Recent Orders (Today)</h4>
+        <div id="activeOrdersList">
+            <div class="empty-state" style="padding: 10px;">
+                <small>No recent orders</small>
+            </div>
+        </div>
+    </div>
+    <!-- ✅ END OF ADDED SECTION -->
+</div>
+
+            <!-- Menu & Order Section -->
+            <div class="main-order-section">
+                <div class="current-order-header">
+                    <h3>📝 Order for: <span id="currentOrderType">Takeaway</span></h3>
+                    <div class="order-meta">
+                        <span>Cashier: <strong id="currentServerName">-</strong></span>
+                        <span>Time: <strong id="orderStartTime">-</strong></span>
+                        <span>Order #: <strong id="orderNumber">-</strong></span>
+                        <span>Order Type: 
+                            <select id="orderTypeSelect" onchange="changeOrderType(this.value)" style="margin-left: 5px; padding: 3px 8px; border-radius: 4px; border: 1px solid #ccc;">
+                                <option value="takeaway">🏃 Takeaway</option>
+                                <option value="delivery">🚚 Delivery</option>
+                            </select>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Search & Categories -->
+                <div class="search-container">
+                    <input type="text" id="menuSearch" placeholder="🔍 Search menu items..." class="search-input">
+                </div>
+                
+                <div class="categories-scroll" id="categoryTabs">
+    <!-- Categories will be dynamically loaded from menu.json -->
+</div>
+
+                <!-- Menu Items -->
+                <div class="menu-items-grid" id="menuItems">
+                    <!-- Menu items loaded by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Order Summary - EXPANDED -->
+            <div class="order-summary-panel expanded">
+                <div class="summary-header">
+                    <h3>💰 Order Summary</h3>
+                    <button class="btn-clear" onclick="clearOrder()">🗑️ Clear</button>
+                </div>
+                
+                <div class="order-items-list" id="orderItems">
+                    <div class="empty-state">
+                        <div class="empty-icon">🛒</div>
+                        <p>No items added</p>
+                        <small>Select items to begin order</small>
+                    </div>
+                </div>
+
+                <div class="order-totals">
+                    <div class="total-line">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">₦0</span>
+                    </div>
+                    <div class="total-line">
+                        <span>Tax (0%):</span>
+                        <span id="tax">₦0</span>
+                    </div>
+                    <div class="total-line grand-total">
+                        <span>TOTAL:</span>
+                        <span id="total">₦0</span>
+                    </div>
+                    <div class="total-line fee-line" id="feeLine" style="display: none;">
+                        <span>🏃 Takeaway Fee:</span>
+                        <span id="takeawayFee">₦0</span>
+                    </div>
+                </div>
+
+                <div class="upsell-section">
+    <div class="upsell-items">
+        <button class="upsell-btn" onclick="addTakeawayFee()">➕ Add Takeaway Fee ₦300</button>
+        <button class="upsell-btn" onclick="upsellWater()">💧 Add Water +₦300</button>
+    </div>
+</div>
+
+<!-- POS Payment Method Selector -->
+<div class="pos-payment-section" style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 10px;">
+    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Payment Method:</label>
+    <div style="display: flex; gap: 10px;">
+        <button id="posPaymentCash" class="pos-payment-btn active" data-payment="cash" style="flex: 1; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 8px; cursor: pointer;">
+            💵 Cash
+        </button>
+        <button id="posPaymentTransfer" class="pos-payment-btn" data-payment="transfer" style="flex: 1; padding: 10px; background: #f0f0f0; color: #333; border: 1px solid #ddd; border-radius: 8px; cursor: pointer;">
+            🏦 Bank Transfer
+        </button>
+    </div>
+</div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-save save-order-btn" onclick="saveOrder()">💾 Save Order</button>
+                    <button class="btn btn-checkout checkout-btn" onclick="checkoutWithPrint()" disabled style="opacity:0.5; cursor:not-allowed;">🖨️ Checkout & Print</button>
+                </div>
+                
+                <!-- Sync Status -->
+                <div class="sync-status" id="syncStatus" style="margin-top: 10px; padding: 5px; border-radius: 5px; text-align: center; font-size: 11px; background: #f8f9fa;">
+                    <span id="syncIcon">🔄</span>
+                    <span id="syncText">Auto-sync enabled</span>
+                </div>
+                
+                <!-- Supabase Connection Status -->
+                <div class="connection-status" id="connectionStatus" style="margin-top: 5px; padding: 5px; border-radius: 5px; text-align: center; font-size: 11px;">
+                    🔄 Connecting to cloud...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manager Dashboard Screen -->
+    <div id="managerDashboard" class="screen">
+        <header class="professional-header">
+            <div class="header-left">
+                <h1>UrbanCity Manager Dashboard</h1>
+                <div class="session-info">
+                    <span class="staff-badge">👤 <span id="dashboardStaffName">Manager</span></span>
+                    <span class="time-display" id="dashboardTime"></span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn-back" onclick="closeManagerDashboard()">⬅️ Back to POS</button>
+                <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            </div>
+        </header>
+
+        <div class="dashboard-layout">
+            <!-- Navigation Sidebar -->
+            <div class="dashboard-sidebar">
+                <div class="sidebar-menu">
+    <button class="menu-btn" onclick="window.open('admin.html', '_blank')" style="background: linear-gradient(135deg, #ff9800, #ff5722); color: white;">
+        🍽️ Menu Manager
+    </button>
+    <button class="menu-btn" data-tab="inventory">📦 Inventory</button>
+    <button class="menu-btn" data-tab="reports">📈 Sales Reports</button>
+    <button class="menu-btn" data-tab="staff">👥 Staff Management</button>
+    <button class="menu-btn" data-tab="customers">👤 Customers</button>
+    <button class="menu-btn" data-tab="rawitems">📊 Manage Raw Items</button>
+    <button class="menu-btn" data-tab="system">⚙️ System</button>
+</div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="dashboard-content">
+                <!-- Inventory Management Tab -->
+                <div id="inventory-tab" class="tab-content active">
+                    <div class="tab-header">
+                        <h2>📦 Inventory Management</h2>
+                        <button class="btn-primary" onclick="showAddItemModal()">+ Add Item</button>
+                    </div>
+                    <div class="inventory-grid" id="inventoryGrid">
+                        <!-- Inventory items will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Menu Manager Tab (from admin.html) -->
+<div id="menumanager-tab" class="tab-content">
+    <div class="tab-header">
+        <h2>🍽️ Menu Manager</h2>
+        <button class="btn-primary" onclick="openAddMenuItemModal()">+ Add Menu Item</button>
+    </div>
+    
+    <!-- Search and Filters -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+        <input type="text" id="menuManagerSearch" class="search-input" placeholder="🔍 Search menu items..." style="width: 300px;">
+        <div class="filters" style="display: flex; gap: 10px;">
+            <button class="filter-btn active" data-filter="all">All Items</button>
+            <button class="filter-btn" data-filter="available">✅ Available</button>
+            <button class="filter-btn" data-filter="unavailable">❌ Unavailable</button>
+        </div>
+    </div>
+    
+    <!-- Menu Items Grid -->
+    <div id="menuManagerGrid" class="items-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; max-height: 60vh; overflow-y: auto; padding: 10px;">
+        <div class="loading">Loading menu items...</div>
+    </div>
+</div>
+
+                <!-- Sales Reports Tab -->
+                <div id="reports-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>📈 Sales Reports</h2>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn-primary" onclick="generateManagerReport()">📊 Generate Report</button>
+                            <span style="font-size: 12px; color: #666;">☁️ Data from Supabase</span>
+                        </div>
+                    </div>
+                    <div class="report-content" id="reportContent">
+                        <!-- Reports will be displayed here -->
+                    </div>
+                </div>
+
+                <!-- Staff Management Tab -->
+                <div id="staff-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>👥 Staff Management</h2>
+                        <button class="btn-primary" onclick="showAddStaffModal()">+ Add Staff</button>
+                    </div>
+                    <div class="staff-list" id="staffList">
+                        <!-- Staff list will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Customers Tab -->
+                <div id="customers-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>👤 Customer Database</h2>
+                        <input type="text" id="customerSearch" placeholder="🔍 Search customers..." class="search-input" style="width: 300px; margin-right: 10px;" onkeyup="searchCustomers()">
+                        <button class="btn-primary" onclick="showAddCustomerModal()">+ Add Customer</button>
+                    </div>
+                    <div class="customers-list" id="customersList">
+                        <!-- Customers will be displayed here -->
+                    </div>
+                </div>
+                
+                <!-- Raw Items Tab (Google Sheets) -->
+                <div id="rawitems-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>📊 Manage Raw Items</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-primary" onclick="openGoogleSheets()">
+                                📊 Open in Google Sheets
+                            </button>
+                            <button class="btn-secondary" onclick="syncInventoryToGoogleSheets()">
+                                🔄 Sync Now
+                            </button>
+                        </div>
+                    </div>
+                    <div class="raw-items-content">
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">📊</div>
+                            <h3>Google Sheets Integration</h3>
+                            <p style="color: #666; margin: 15px 0;">
+                                Manage your raw items directly in Google Sheets. Click the button below to open.
+                            </p>
+                            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                                <button class="btn-primary" onclick="openGoogleSheets()" style="padding: 15px 30px; font-size: 16px;">
+                                    📊 Open Google Sheets
+                                </button>
+                                <button class="btn-secondary" onclick="syncInventoryToGoogleSheets()" style="padding: 15px 30px; font-size: 16px;">
+                                    🔄 Sync Inventory
+                                </button>
+                            </div>
+                            <div style="margin-top: 30px; padding: 15px; background: #e9f7fe; border-radius: 8px;">
+                                <p><strong>💡 Tip:</strong> Changes made in Google Sheets will sync automatically when you click "Sync Now".</p>
+                                <p>Sheet URL: <a href="https://docs.google.com/spreadsheets/d/10FeHf8TjzkUNf58-xEp9Lxt16Eqq5Te9lpdq7TfaDgk/edit" target="_blank">Open Raw Items Sheet</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Tab -->
+                <div id="system-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>⚙️ System Settings</h2>
+                    </div>
+                    <div style="padding: 20px; background: white; border-radius: 10px; margin-top: 20px;">
+                        <h3>☁️ Supabase Connection</h3>
+                        <div id="supabaseStatus" style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>Status:</strong> <span id="supabaseStatusText">Checking...</span>
+                        </div>
+                        
+                        <h3>🖨️ Printer Configuration</h3>
+                        <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>Printer:</strong> <span id="systemPrinterStatus">Checking...</span><br>
+                            <strong>Type:</strong> <span id="systemPrinterType">Unknown</span><br>
+                            <strong>IP Address:</strong> <span id="systemPrinterIP">Not configured</span>
+                            <button class="btn-secondary" onclick="showPrinterSetupModal()" style="margin-top: 10px; padding: 5px 10px; font-size: 12px;">
+                                ⚙️ Configure Printer
+                            </button>
+                        </div>
+                        
+                        <h3>🔄 Data Management</h3>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn-primary" onclick="dataManager.exportData()">📤 Export All Data</button>
+                            <button class="btn-secondary" onclick="dataManager.createBackup()">💾 Create Backup</button>
+                            <button class="btn-secondary" onclick="syncWithSupabase()">🔄 Sync with Supabase</button>
+                        </div>
+
+                        <div style="margin-top: 20px; padding: 15px; background: #f8d7da; border-radius: 10px; border-left: 4px solid #dc3545;">
+    <h4 style="color: #721c24;">⚠️ Danger Zone</h4>
+    <p style="font-size: 12px; margin-bottom: 10px;">Clear all order records from this device's local storage.</p>
+    <button onclick="clearAllLocalOrders()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">
+        🗑️ Clear All Local Orders
+    </button>
+</div>
+                        
+                        <h3 style="margin-top: 30px;">⚡ Quick Actions</h3>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn-secondary" onclick="resetDailyData()">🔄 Reset Daily Data</button>
+                            <button class="btn-secondary" onclick="clearAllData()" style="background: #dc3545; color: white;">🗑️ Clear All Data</button>
+                        </div>
+                        
+                        <div style="margin-top: 30px; padding: 15px; background: #e9f7fe; border-radius: 8px; border-left: 4px solid #007bff;">
+                            <h4>ℹ️ System Information</h4>
+                            <div><strong>Staff Members:</strong> <span id="staffCount">3</span></div>
+                            <div><strong>Total Orders:</strong> <span id="totalOrdersCount">0</span></div>
+                            <div><strong>Database:</strong> Supabase Cloud</div>
+                            <div><strong>Last Sync:</strong> <span id="lastSyncTime">Never</span></div>
+                            <div><strong>Session:</strong> <span id="sessionInfo">Active</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add your main script -->
+    <script src="script.js"></script>
+    
+    <!-- Add this CSS inline or in your style.css -->
+    <style>
+        /* Session Status Indicator */
+        .session-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite;
+        }
+
+        /* Printer Status */
+        .printer-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #17a2b8;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Sync Status */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            border: 1px solid #e9ecef;
+        }
+
+        .sync-status #syncIcon {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Updated Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            z-index: 2000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        /* Printer Testing Animation */
+        .printer-testing {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        /* Printer Setup Specific */
+        #testResult {
+            min-height: 50px;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+
+        /* Recent Orders Section */
+        .recent-orders-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px dashed #e9ecef;
+        }
+
+        .recent-orders-section h4 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        /* Expanded Order Summary */
+        .order-summary-panel.expanded {
+            min-height: 600px;
+        }
+
+        .order-items-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            max-height: 500px !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .session-status,
+            .printer-status {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+        }
+    </style>
+
+    <!-- Sound permission initialization -->
+<button id="enableSoundBtn" style="display: none;"></button>
+<script>
+    // Request audio permission on first user interaction
+    document.addEventListener('click', function initAudio() {
+        // Create silent audio context to unlock audio on mobile/tablet
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const silent = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        silent.connect(gain);
+        gain.connect(audioContext.destination);
+        gain.gain.value = 0;
+        silent.start();
+        silent.stop(0.1);
+        audioContext.suspend();
+        
+        document.removeEventListener('click', initAudio);
+        console.log('✅ Audio permission granted');
+    });
+</script>
+
+</body>
+</html>
