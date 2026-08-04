@@ -5824,111 +5824,200 @@ setInterval(() => {
 // =============================================
 class MenuSyncService {
     constructor() {
+        // Use Supabase URL instead of JSON file
         this.menuUrl = window.location.origin + '/menu.json';
-        this.syncInterval = 5 * 60 * 1000;
+        this.syncInterval = 5 * 60 * 1000; // 5 minutes
         this.lastSync = null;
         this.startAutoSync();
     }
 
     startAutoSync() {
-        console.log('🔄 Menu auto-sync service started');
+        console.log('🔄 Menu auto-sync service started (Supabase mode)');
         this.syncMenu();
         setInterval(() => this.syncMenu(), this.syncInterval);
     }
 
     async syncMenu() {
         try {
-            console.log('📥 Fetching menu from:', this.menuUrl);
-            const response = await fetch(this.menuUrl + '?t=' + Date.now());
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const menuData = await response.json();
+            console.log('📥 Fetching menu from Supabase...');
+            
+            // ============================================
+            // FETCH DIRECTLY FROM SUPABASE
+            // ============================================
+            const { data: categories, error: catError } = await window.supabaseClient
+                .from('categories')
+                .select('*')
+                .eq('is_active', true)
+                .order('display_order', { ascending: true });
+            
+            if (catError) throw catError;
+            
+            const { data: menuItems, error: itemError } = await window.supabaseClient
+                .from('menu_items')
+                .select('*')
+                .eq('is_active', true);
+            
+            if (itemError) throw itemError;
+            
+            const { data: variants, error: varError } = await window.supabaseClient
+                .from('variants')
+                .select('*')
+                .order('display_order', { ascending: true });
+            
+            if (varError) throw varError;
+            
+            // Build menu data from Supabase
+            const menuData = {
+                categories: categories.map(cat => ({
+                    id: cat.category_id,
+                    name: cat.name,
+                    items: menuItems
+                        .filter(item => item.category_id === cat.category_id)
+                        .map(item => ({
+                            name: item.name,
+                            description: item.description || '',
+                            price: variants.filter(v => v.menu_item_id === item.item_id)[0]?.price || null,
+                            price_display: item.price_display || '',
+                            image: item.image || '',
+                            type: item.type || '',
+                            tags: item.tags || [],
+                            is_available: item.is_available ?? true,
+                            stock: 100,
+                            lowStock: 20,
+                            variants: variants
+                                .filter(v => v.menu_item_id === item.item_id)
+                                .map(v => ({
+                                    size: v.size,
+                                    price: v.price,
+                                    display: v.display || `${v.size} – ₦${v.price.toLocaleString()}`
+                                }))
+                        }))
+                }))
+            };
+            
+            console.log(`✅ Fetched ${menuData.categories.length} categories from Supabase`);
+            
+            // Update POS menu
             this.updateMenuInPOS(menuData);
             this.lastSync = new Date();
-            console.log('✅ Menu synced successfully');
+            console.log('✅ Menu synced from Supabase successfully');
+            
             if (pos && pos.currentStaff) {
-                showNotification('📋 Menu updated from server', 'info');
+                showNotification('📋 Menu updated from Supabase!', 'success');
             }
             return true;
+            
         } catch (error) {
             console.error('❌ Menu sync failed:', error);
+            // Fallback to static JSON if Supabase fails
+            console.log('⚠️ Trying fallback to JSON file...');
+            try {
+                const response = await fetch(this.menuUrl + '?t=' + Date.now());
+                if (response.ok) {
+                    const menuData = await response.json();
+                    this.updateMenuInPOS(menuData);
+                    this.lastSync = new Date();
+                    console.log('✅ Menu synced from JSON fallback');
+                    return true;
+                }
+            } catch (fallbackError) {
+                console.error('❌ Fallback sync also failed:', fallbackError);
+            }
             return false;
         }
     }
 
     updateMenuInPOS(menuData) {
-    if (!window.pos && typeof pos !== 'undefined') {
-        window.pos = pos;
-    }
-    
-    if (!window.pos) {
-        console.error('POS not ready, retrying...');
-        setTimeout(() => this.updateMenuInPOS(menuData), 2000);
-        return;
-    }
-    
-    let newMenuItems = [];
-    let itemId = 1;
-    
-    if (menuData.categories) {
-        menuData.categories.forEach(category => {
-            category.items.forEach(item => {
-                const newItem = {
-                    id: itemId++,
-                    name: item.name,
-                    category: category.id,
-                    stock: item.stock || 100,
-                    lowStock: item.lowStock || 20,
-                    description: item.description || '',
-                    image: item.image || ''
-                };
-                
-                // Check if item has variants
-                if (item.variants && item.variants.length > 0) {
-                    newItem.variants = item.variants;
-                    newItem.hasVariants = true;
-                    // Set default price as first variant price
-                    newItem.price = item.variants[0].price;
-                } else {
-                    newItem.price = item.price || 0;
-                    newItem.hasVariants = false;
-                }
-                
-                newMenuItems.push(newItem);
+        if (!window.pos && typeof pos !== 'undefined') {
+            window.pos = pos;
+        }
+        
+        if (!window.pos) {
+            console.error('POS not ready, retrying...');
+            setTimeout(() => this.updateMenuInPOS(menuData), 2000);
+            return;
+        }
+        
+        let newMenuItems = [];
+        let itemId = 1;
+        
+        if (menuData.categories) {
+            menuData.categories.forEach(category => {
+                category.items.forEach(item => {
+                    const newItem = {
+                        id: itemId++,
+                        name: item.name,
+                        category: category.id,
+                        stock: item.stock || 100,
+                        lowStock: item.lowStock || 20,
+                        description: item.description || '',
+                        image: item.image || '',
+                        price: item.price || 0,
+                        price_display: item.price_display || '',
+                        type: item.type || '',
+                        tags: item.tags || [],
+                        is_available: item.is_available ?? true
+                    };
+                    
+                    // Check if item has variants
+                    if (item.variants && item.variants.length > 0) {
+                        newItem.variants = item.variants;
+                        newItem.hasVariants = true;
+                        // Set default price as first variant price
+                        newItem.price = item.variants[0].price || 0;
+                    } else {
+                        newItem.hasVariants = false;
+                        if (!newItem.price && item.price_display) {
+                            const match = item.price_display.match(/₦([\d,]+)/);
+                            if (match) {
+                                newItem.price = parseInt(match[1].replace(/,/g, ''));
+                            }
+                        }
+                    }
+                    
+                    newMenuItems.push(newItem);
+                });
             });
-        });
-    }
-    
-    // Update POS menu items
-    if (newMenuItems.length > 0) {
-        const oldMenuItems = window.pos.menuItems || [];
-        newMenuItems = newMenuItems.map(newItem => {
-            const oldItem = oldMenuItems.find(o => o.name === newItem.name);
-            if (oldItem) {
-                newItem.stock = oldItem.stock;
-                newItem.lowStock = oldItem.lowStock;
-                // Preserve variants if they exist
-                if (oldItem.variants && !newItem.variants) {
-                    newItem.variants = oldItem.variants;
+        }
+        
+        // Update POS menu items
+        if (newMenuItems.length > 0) {
+            const oldMenuItems = window.pos.menuItems || [];
+            
+            // Preserve stock from existing items
+            newMenuItems = newMenuItems.map(newItem => {
+                const oldItem = oldMenuItems.find(o => o.name === newItem.name && o.category === newItem.category);
+                if (oldItem) {
+                    newItem.stock = oldItem.stock;
+                    newItem.lowStock = oldItem.lowStock;
+                    if (oldItem.variants && !newItem.variants) {
+                        newItem.variants = oldItem.variants;
+                    }
                 }
+                return newItem;
+            });
+            
+            window.pos.menuItems = newMenuItems;
+            window.pos.saveMenuItems();
+            window.pos.saveLocalPriceBackup();
+            
+            // Re-render menu if POS is active
+            if (document.getElementById('posScreen')?.classList.contains('active')) {
+                window.pos.renderMenuItems();
+                window.pos.renderCategories();
             }
-            return newItem;
-        });
-        
-        window.pos.menuItems = newMenuItems;
-        window.pos.saveMenuItems();
-        
-        if (document.getElementById('posScreen').classList.contains('active')) {
-    window.pos.renderMenuItems();
-    window.pos.renderCategories();  // <-- ADD THIS LINE
-}
-        console.log('📋 Menu updated with', newMenuItems.length, 'items');
+            
+            console.log('📋 Menu updated with', newMenuItems.length, 'items from Supabase');
+        }
     }
-}
 
     async manualSync() {
-        showNotification('🔄 Syncing menu...', 'info');
+        showNotification('🔄 Syncing from Supabase...', 'info');
         const success = await this.syncMenu();
-        showNotification(success ? '✅ Menu synced!' : '❌ Sync failed', success ? 'success' : 'error');
+        showNotification(
+            success ? '✅ Menu synced from Supabase!' : '❌ Sync failed',
+            success ? 'success' : 'error'
+        );
     }
 
     setMenuUrl(url) {
@@ -6009,39 +6098,34 @@ function addMenuSyncToSystemTab() {
     const systemContent = systemTab.querySelector('div');
     if (!systemContent) return;
     
-    // Check if already added
     if (document.getElementById('menuSyncSection')) return;
     
-    // Get last sync time from window.menuSync if available
+    // Get last sync time
     let lastSyncText = 'Not synced yet';
     if (window.menuSync && window.menuSync.lastSync) {
-        lastSyncText = 'Last sync: ' + window.menuSync.lastSync.toLocaleTimeString();
+        lastSyncText = 'Last sync: ' + window.menuSync.lastSync.toLocaleTimeString() + ' (from Supabase)';
     }
     
-    // Get saved URL or use default
-    const savedUrl = localStorage.getItem('customMenuUrl') || 'https://urbancity.food/menu.json';
+    const savedUrl = localStorage.getItem('customMenuUrl') || window.location.origin + '/menu.json';
     
     const menuSyncHTML = `
         <div id="menuSyncSection" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
             <h3>📋 Menu Auto-Sync</h3>
             <div style="margin-top: 15px;">
                 <div class="form-group">
-                    <label for="menuUrl">Menu JSON URL</label>
-                    <input type="url" id="menuUrl" class="form-control" 
-                           value="${savedUrl}" 
-                           placeholder="https://your-menu-site.com/menu.json">
-                    <small class="form-text text-muted">Host your menu JSON file here</small>
+                    <label for="menuUrl">Sync Source</label>
+                    <div style="background: #d4edda; padding: 10px; border-radius: 8px; color: #155724; font-weight: bold;">
+                        ✅ Syncing directly from Supabase Database (Live)
+                    </div>
+                    <small class="form-text text-muted">Menu items added via Admin Dashboard will appear automatically after sync</small>
                 </div>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn-primary" onclick="updateMenuUrl()">
-                        📍 Update URL
+                    <button class="btn-success" onclick="manualMenuSync()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        🔄 Sync Now (from Supabase)
                     </button>
-                    <button class="btn-success" onclick="manualMenuSync()">
-                        🔄 Sync Now
-                    </button>
-                    <button class="btn-secondary" onclick="testMenuUrl()">
-                        🔍 Test URL
+                    <button class="btn-secondary" onclick="testMenuUrl()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        🔍 Test Connection
                     </button>
                 </div>
                 
@@ -6054,6 +6138,7 @@ function addMenuSyncToSystemTab() {
     `;
     
     systemContent.insertAdjacentHTML('beforeend', menuSyncHTML);
+}
 
     // Add this to your addMenuSyncToSystemTab function
 const forceSyncButton = `
