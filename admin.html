@@ -199,224 +199,167 @@
             margin-bottom: 12px;
         }
         .action-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 15px;
-}
-
-.action-buttons button {
-    flex: 1;
-    min-width: 100px;
-    padding: 10px 12px;
-    font-size: 12px;
-    white-space: nowrap;
-}
-        /*.toggle-btn, .edit-btn, .delete-btn {
-            padding: 8px 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .action-buttons button {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 12px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .toggle-available, .toggle-unavailable, .edit-btn, .delete-btn, .add-btn, .logout-btn, .filter-btn, .tab-btn, .stat-card, .theme-toggle, .close-modal, .add-variant, .save-btn {
+            cursor: pointer;
+        }
+        .toggle-available {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
             border: none;
+            padding: 8px 15px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             flex: 1;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
-        .toggle-available {
-            background: #4caf50;
-            color: white;
+        .toggle-available:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+            background: linear-gradient(135deg, #45a049, #3d8b40);
         }
         .toggle-unavailable {
-            background: #e74c3c;
+            background: linear-gradient(135deg, #ff9800, #e68900);
             color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            flex: 1;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .toggle-unavailable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+            background: linear-gradient(135deg, #e68900, #cc7a00);
         }
         .edit-btn {
-            background: #2196f3;
+            background: linear-gradient(135deg, #2196f3, #0d8aee);
             color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            flex: 1;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .edit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            background: linear-gradient(135deg, #0d8aee, #0b7bda);
         }
         .delete-btn {
-            background: #555;
+            background: linear-gradient(135deg, #f44336, #e53935);
             color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            flex: 1;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
-        .toggle-btn:hover, .edit-btn:hover, .delete-btn:hover {
+        .delete-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+            background: linear-gradient(135deg, #e53935, #d32f2f);
+        }
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1e1e23;
+            --bg-card: rgba(30,30,35,0.95);
+            --text-primary: #fff;
+            --text-secondary: #aaa;
+            --border-color: rgba(255,152,0,0.3);
+            --input-bg: #333;
+            --input-border: #555;
+        }
+        :root.light-mode {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #111;
+            --text-secondary: #666;
+            --border-color: rgba(0,0,0,0.1);
+            --input-bg: #f0f0f0;
+            --input-border: #ddd;
+        }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        .stat-card, .item-card, .modal-content {
+            background: var(--bg-card);
+            border-color: var(--border-color);
+        }
+        .search-box, .form-group input, .form-group textarea, .form-group select {
+            background: var(--input-bg);
+            border-color: var(--input-border);
+            color: var(--text-primary);
+        }
+        .variant-item {
+            background: var(--bg-secondary);
+        }
+        .stat-label, .item-category, .item-price {
+            color: var(--text-secondary);
+        }
+        .filters .filter-btn, .tab-btn {
+            color: var(--text-primary);
+        }
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 50px;
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+            color: var(--text-primary);
+        }
+        .theme-toggle:hover {
             transform: scale(1.02);
-            filter: brightness(1.05);
-        }*/
-
-        .toggle-available, .toggle-unavailable, .edit-btn, .delete-btn, .add-btn, .logout-btn, .filter-btn, .tab-btn, .stat-card, .theme-toggle, .close-modal, .add-variant, .save-btn {
-    cursor: pointer;
-}
-
-/* Improved Toggle Buttons */
-.toggle-available {
-    background: linear-gradient(135deg, #4caf50, #45a049);
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.toggle-available:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
-    background: linear-gradient(135deg, #45a049, #3d8b40);
-}
-
-.toggle-unavailable {
-    background: linear-gradient(135deg, #ff9800, #e68900);
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.toggle-unavailable:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
-    background: linear-gradient(135deg, #e68900, #cc7a00);
-}
-
-.edit-btn {
-    background: linear-gradient(135deg, #2196f3, #0d8aee);
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.edit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
-    background: linear-gradient(135deg, #0d8aee, #0b7bda);
-}
-
-.delete-btn {
-    background: linear-gradient(135deg, #f44336, #e53935);
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.delete-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
-    background: linear-gradient(135deg, #e53935, #d32f2f);
-}
-
-        /* Dark/Light Mode Variables */
-:root {
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #1e1e23;
-    --bg-card: rgba(30,30,35,0.95);
-    --text-primary: #fff;
-    --text-secondary: #aaa;
-    --border-color: rgba(255,152,0,0.3);
-    --input-bg: #333;
-    --input-border: #555;
-}
-
-:root.light-mode {
-    --bg-primary: #f5f5f5;
-    --bg-secondary: #ffffff;
-    --bg-card: #ffffff;
-    --text-primary: #111;
-    --text-secondary: #666;
-    --border-color: rgba(0,0,0,0.1);
-    --input-bg: #f0f0f0;
-    --input-border: #ddd;
-}
-
-body {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    transition: all 0.3s ease;
-}
-
-/* Update existing elements to use variables */
-.stat-card, .item-card, .modal-content {
-    background: var(--bg-card);
-    border-color: var(--border-color);
-}
-
-.search-box, .form-group input, .form-group textarea, .form-group select {
-    background: var(--input-bg);
-    border-color: var(--input-border);
-    color: var(--text-primary);
-}
-
-.variant-item {
-    background: var(--bg-secondary);
-}
-
-.stat-label, .item-category, .item-price {
-    color: var(--text-secondary);
-}
-
-.filters .filter-btn, .tab-btn {
-    color: var(--text-primary);
-}
-
-/* Theme Toggle Button */
-.theme-toggle {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 50px;
-    padding: 8px 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: bold;
-    transition: all 0.3s;
-    color: var(--text-primary);
-}
-
-.theme-toggle:hover {
-    transform: scale(1.02);
-}
-
-.theme-toggle i {
-    font-size: 1.1rem;
-}
-        
-        /* Modal Styles */
+        }
+        .theme-toggle i {
+            font-size: 1.1rem;
+        }
         .modal {
             display: none;
             position: fixed;
@@ -520,26 +463,103 @@ body {
             color: #ff9800;
         }
 
+        /* NEW: Image upload preview styles */
+        .image-upload-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .image-upload-wrapper .image-preview {
+            width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            background: #2a2a2a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 2px dashed #555;
+            position: relative;
+        }
+        .image-upload-wrapper .image-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+        }
+        .image-upload-wrapper .image-preview .placeholder-text {
+            color: #888;
+            font-size: 0.9rem;
+            padding: 20px;
+            text-align: center;
+        }
+        .image-upload-wrapper .file-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .image-upload-wrapper .file-input-wrapper input[type="file"] {
+            flex: 1;
+            padding: 8px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85rem;
+        }
+        .image-upload-wrapper .file-input-wrapper input[type="file"]::file-selector-button {
+            background: #ff9800;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            color: #111;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .image-upload-wrapper .upload-status {
+            font-size: 0.8rem;
+            color: #ff9800;
+            margin-top: 5px;
+        }
+        .image-url-display {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 5px;
+        }
+        .image-url-display input {
+            flex: 1;
+            padding: 6px 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #aaa;
+            font-size: 0.75rem;
+        }
+        .image-url-display button {
+            background: #e74c3c;
+            border: none;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+
         @media (max-width: 768px) {
-    .action-buttons {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .action-buttons button {
-        width: 100%;
-        white-space: normal;
-        padding: 10px;
-    }
-    
-    .toggle-available, 
-    .toggle-unavailable, 
-    .edit-btn, 
-    .delete-btn {
-        justify-content: center;
-    }
-}
-        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .action-buttons button {
+                width: 100%;
+                white-space: normal;
+                padding: 10px;
+            }
+            .toggle-available, .toggle-unavailable, .edit-btn, .delete-btn {
+                justify-content: center;
+            }
             .items-grid {
                 grid-template-columns: 1fr;
             }
@@ -559,9 +579,9 @@ body {
             <button class="add-btn" onclick="openAddModal()"><i class="fas fa-plus"></i> Add New Item</button>
             <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
-    <i class="fas fa-moon"></i>
-    <span>Dark Mode</span>
-</button>
+                <i class="fas fa-moon"></i>
+                <span>Dark Mode</span>
+            </button>
         </div>
     </div>
     
@@ -629,10 +649,31 @@ body {
                     <label>Tags (comma separated)</label>
                     <input type="text" id="tags" placeholder="e.g., Spicy, Popular, Premium">
                 </div>
+                
+                <!-- ============================================ -->
+                <!-- IMAGE UPLOAD - NEW SECTION -->
+                <!-- ============================================ -->
                 <div class="form-group">
-                    <label>Image Filename</label>
-                    <input type="text" id="image" placeholder="e.g., 34.jpg">
+                    <label>Item Image</label>
+                    <div class="image-upload-wrapper">
+                        <div class="image-preview" id="imagePreview">
+                            <span class="placeholder-text">No image selected</span>
+                        </div>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="imageFile" accept="image/*" onchange="handleImageFileSelect(event)">
+                            <button type="button" class="add-variant" onclick="uploadImageToSupabase()" style="margin: 0; white-space: nowrap;">
+                                <i class="fas fa-cloud-upload-alt"></i> Upload
+                            </button>
+                        </div>
+                        <div class="image-url-display">
+                            <input type="text" id="image" placeholder="Image URL will appear here" readonly>
+                            <button type="button" onclick="clearImage()" title="Clear image">✕</button>
+                        </div>
+                        <div class="upload-status" id="uploadStatus"></div>
+                    </div>
                 </div>
+                <!-- ============================================ -->
+                
                 <div class="form-group">
                     <label>Simple Price Display (for items without variants)</label>
                     <input type="text" id="priceDisplay" placeholder="₦7,500 or #7,500">
@@ -709,6 +750,16 @@ body {
             let searchTerm = '';
             let currentFilter = 'all';
             
+            // ============================================
+            // IMAGE UPLOAD STATE
+            // ============================================
+            let selectedFile = null;
+            let currentImageUrl = '';
+            let isUploading = false;
+            
+            // ============================================
+            // AUTH
+            // ============================================
             function checkAuth() {
                 if (!sessionStorage.getItem('admin_logged_in')) {
                     const pwd = prompt('🔐 Enter admin password:');
@@ -726,6 +777,9 @@ body {
                 window.location.reload();
             }
             
+            // ============================================
+            // LOAD DATA
+            // ============================================
             async function loadAllData() {
                 await Promise.all([loadCategories(), loadItems(), loadVariants()]);
                 updateStats();
@@ -808,9 +862,12 @@ body {
                         ? itemVariants.map(v => v.display).join(', ')
                         : (item.price_display || `₦${item.price?.toLocaleString() || 'Price varies'}`);
                     
+                    // Check if image URL is from Supabase Storage
+                    const imageUrl = item.image || '';
+                    
                     return `
                         <div class="item-card">
-                            <div class="item-image" style="background-image: url('${item.image || ''}'); background-size: cover; background-position: center;">
+                            <div class="item-image" style="background-image: url('${imageUrl}'); background-size: cover; background-position: center;">
                                 <div class="availability-badge ${item.is_available ? 'badge-available' : 'badge-unavailable'}">
                                     <i class="fas ${item.is_available ? 'fa-check-circle' : 'fa-times-circle'}"></i>
                                     ${item.is_available ? 'Available' : 'Unavailable'}
@@ -821,19 +878,142 @@ body {
                                 <div class="item-category"><i class="fas fa-tag"></i> ${category?.name || item.category_id}</div>
                                 <div class="item-price"><i class="fas fa-naira-sign"></i> ${escapeHtml(priceDisplay)}</div>
                                 <div class="action-buttons">
-    <button class="${item.is_available ? 'toggle-unavailable' : 'toggle-available'}" onclick="toggleAvailability('${item.item_id}', ${item.is_available})">
-        <i class="fas ${item.is_available ? 'fa-ban' : 'fa-check-circle'}"></i>
-        ${item.is_available ? 'Mark Unavailable' : 'Mark Available'}
-    </button>
-    <button class="edit-btn" onclick="openEditModal('${item.item_id}')"><i class="fas fa-edit"></i> Edit</button>
-    <button class="delete-btn" onclick="deleteItem('${item.item_id}')"><i class="fas fa-trash"></i> Delete</button>
-</div>
+                                    <button class="${item.is_available ? 'toggle-unavailable' : 'toggle-available'}" onclick="toggleAvailability('${item.item_id}', ${item.is_available})">
+                                        <i class="fas ${item.is_available ? 'fa-ban' : 'fa-check-circle'}"></i>
+                                        ${item.is_available ? 'Mark Unavailable' : 'Mark Available'}
+                                    </button>
+                                    <button class="edit-btn" onclick="openEditModal('${item.item_id}')"><i class="fas fa-edit"></i> Edit</button>
+                                    <button class="delete-btn" onclick="deleteItem('${item.item_id}')"><i class="fas fa-trash"></i> Delete</button>
+                                </div>
                             </div>
                         </div>
                     `;
                 }).join('');
             }
             
+            // ============================================
+            // IMAGE UPLOAD FUNCTIONS
+            // ============================================
+            function handleImageFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // Validate file type
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
+                if (!validTypes.includes(file.type)) {
+                    showToast('❌ Please select a valid image file (JPEG, PNG, GIF, WEBP)');
+                    event.target.value = '';
+                    return;
+                }
+                
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('❌ Image must be less than 5MB');
+                    event.target.value = '';
+                    return;
+                }
+                
+                selectedFile = file;
+                currentImageUrl = '';
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    document.getElementById('uploadStatus').textContent = '📷 File selected. Click "Upload" to save.';
+                    document.getElementById('uploadStatus').style.color = '#ff9800';
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            async function uploadImageToSupabase() {
+                if (!selectedFile) {
+                    showToast('⚠️ Please select an image file first');
+                    return;
+                }
+                
+                if (isUploading) {
+                    showToast('⏳ Upload already in progress...');
+                    return;
+                }
+                
+                isUploading = true;
+                const statusEl = document.getElementById('uploadStatus');
+                statusEl.textContent = '📤 Uploading...';
+                statusEl.style.color = '#2196f3';
+                
+                try {
+                    // Generate a unique filename
+                    const timestamp = Date.now();
+                    const fileExt = selectedFile.name.split('.').pop();
+                    const fileName = `menu-${timestamp}.${fileExt}`;
+                    const filePath = `menu-items/${fileName}`;
+                    
+                    // Upload to Supabase Storage
+                    const { data, error } = await supabase.storage
+                        .from('menu-images')
+                        .upload(filePath, selectedFile, {
+                            cacheControl: '3600',
+                            upsert: false
+                        });
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Get public URL
+                    const { data: urlData } = supabase.storage
+                        .from('menu-images')
+                        .getPublicUrl(filePath);
+                    
+                    const publicUrl = urlData.publicUrl;
+                    currentImageUrl = publicUrl;
+                    
+                    // Update the image field
+                    document.getElementById('image').value = publicUrl;
+                    
+                    // Update preview
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `<img src="${publicUrl}" alt="Uploaded image">`;
+                    
+                    statusEl.textContent = '✅ Image uploaded successfully!';
+                    statusEl.style.color = '#4caf50';
+                    
+                    showToast('✅ Image uploaded to Supabase Storage!');
+                    
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    statusEl.textContent = '❌ Upload failed: ' + error.message;
+                    statusEl.style.color = '#e74c3c';
+                    showToast('❌ Upload failed: ' + error.message);
+                } finally {
+                    isUploading = false;
+                }
+            }
+            
+            function clearImage() {
+                selectedFile = null;
+                currentImageUrl = '';
+                document.getElementById('image').value = '';
+                document.getElementById('imageFile').value = '';
+                document.getElementById('imagePreview').innerHTML = '<span class="placeholder-text">No image selected</span>';
+                document.getElementById('uploadStatus').textContent = '';
+                showToast('🗑️ Image cleared');
+            }
+            
+            function setImagePreviewFromUrl(url) {
+                if (url) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `<img src="${url}" alt="Item image">`;
+                    document.getElementById('image').value = url;
+                    currentImageUrl = url;
+                }
+            }
+            
+            // ============================================
+            // TOGGLE AVAILABILITY
+            // ============================================
             async function toggleAvailability(itemId, currentStatus) {
                 const newStatus = !currentStatus;
                 const { error } = await supabase
@@ -849,6 +1029,9 @@ body {
                 }
             }
             
+            // ============================================
+            // OPEN EDIT MODAL
+            // ============================================
             async function openEditModal(itemId) {
                 const item = allItems.find(i => i.item_id === itemId);
                 if (!item) return;
@@ -859,9 +1042,18 @@ body {
                 document.getElementById('description').value = item.description || '';
                 document.getElementById('type').value = item.type || '';
                 document.getElementById('tags').value = item.tags ? item.tags.join(', ') : '';
-                document.getElementById('image').value = item.image || '';
                 document.getElementById('priceDisplay').value = item.price_display || '';
                 document.getElementById('icon').value = item.icon || '';
+                
+                // Set image
+                if (item.image) {
+                    setImagePreviewFromUrl(item.image);
+                } else {
+                    document.getElementById('imagePreview').innerHTML = '<span class="placeholder-text">No image selected</span>';
+                    document.getElementById('image').value = '';
+                }
+                document.getElementById('imageFile').value = '';
+                document.getElementById('uploadStatus').textContent = '';
                 
                 const itemVariants = allVariants.filter(v => v.menu_item_id === itemId);
                 const container = document.getElementById('variantsContainer');
@@ -874,20 +1066,28 @@ body {
                 document.getElementById('itemModal').style.display = 'flex';
             }
             
+            // ============================================
+            // OPEN ADD MODAL
+            // ============================================
             function openAddModal() {
                 document.getElementById('itemId').value = '';
                 document.getElementById('itemName').value = '';
                 document.getElementById('description').value = '';
                 document.getElementById('type').value = '';
                 document.getElementById('tags').value = '';
-                document.getElementById('image').value = '';
                 document.getElementById('priceDisplay').value = '';
                 document.getElementById('icon').value = '';
                 document.getElementById('variantsContainer').innerHTML = '';
                 document.getElementById('modalTitle').textContent = '➕ Add New Menu Item';
                 document.getElementById('itemModal').style.display = 'flex';
+                
+                // Clear image
+                clearImage();
             }
             
+            // ============================================
+            // VARIANTS
+            // ============================================
             function addVariant(size = '', price = '', display = '') {
                 const container = document.getElementById('variantsContainer');
                 const variantDiv = document.createElement('div');
@@ -910,9 +1110,15 @@ body {
                 container.appendChild(variantDiv);
             }
             
+            // ============================================
+            // SAVE MENU ITEM
+            // ============================================
             async function saveMenuItem() {
                 const itemId = document.getElementById('itemId').value;
                 const newItemId = itemId || `item-${Date.now()}`;
+                
+                // Get image URL (from upload or manual entry)
+                const imageUrl = document.getElementById('image').value || currentImageUrl || '';
                 
                 const itemData = {
                     name: document.getElementById('itemName').value,
@@ -920,7 +1126,7 @@ body {
                     description: document.getElementById('description').value,
                     type: document.getElementById('type').value,
                     tags: document.getElementById('tags').value.split(',').map(t => t.trim()).filter(t => t),
-                    image: document.getElementById('image').value,
+                    image: imageUrl,
                     price_display: document.getElementById('priceDisplay').value,
                     icon: document.getElementById('icon').value,
                     updated_at: new Date().toISOString()
@@ -955,6 +1161,9 @@ body {
                 await loadAllData();
             }
             
+            // ============================================
+            // DELETE ITEM
+            // ============================================
             async function deleteItem(itemId) {
                 if (confirm('Delete this item? This cannot be undone.')) {
                     await supabase.from('variants').delete().eq('menu_item_id', itemId);
@@ -964,6 +1173,9 @@ body {
                 }
             }
             
+            // ============================================
+            // CATEGORY FUNCTIONS
+            // ============================================
             function openCategoryModal() {
                 renderCategoriesList();
                 document.getElementById('categoryModal').style.display = 'flex';
@@ -1057,10 +1269,16 @@ body {
                 }
             }
             
+            // ============================================
+            // MODAL CONTROLS
+            // ============================================
             function closeItemModal() { document.getElementById('itemModal').style.display = 'none'; }
             function closeCategoryModal() { document.getElementById('categoryModal').style.display = 'none'; }
             function closeCategoryFormModal() { document.getElementById('categoryFormModal').style.display = 'none'; }
             
+            // ============================================
+            // TOAST
+            // ============================================
             function showToast(message) {
                 const toast = document.createElement('div');
                 toast.className = 'toast';
@@ -1076,7 +1294,41 @@ body {
                 return div.innerHTML;
             }
             
-            // Global functions
+            // ============================================
+            // THEME
+            // ============================================
+            function toggleTheme() {
+                const root = document.documentElement;
+                const themeToggle = document.getElementById('themeToggle');
+                const isLightMode = root.classList.contains('light-mode');
+                
+                if (isLightMode) {
+                    root.classList.remove('light-mode');
+                    localStorage.setItem('admin_theme', 'dark');
+                    themeToggle.innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
+                } else {
+                    root.classList.add('light-mode');
+                    localStorage.setItem('admin_theme', 'light');
+                    themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
+                }
+            }
+            
+            function loadThemePreference() {
+                const savedTheme = localStorage.getItem('admin_theme');
+                const themeToggle = document.getElementById('themeToggle');
+                
+                if (savedTheme === 'light') {
+                    document.documentElement.classList.add('light-mode');
+                    if (themeToggle) themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
+                } else {
+                    document.documentElement.classList.remove('light-mode');
+                    if (themeToggle) themeToggle.innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
+                }
+            }
+            
+            // ============================================
+            // GLOBAL EXPOSURE
+            // ============================================
             window.toggleAvailability = toggleAvailability;
             window.openEditModal = openEditModal;
             window.openAddModal = openAddModal;
@@ -1094,9 +1346,13 @@ body {
             window.closeCategoryFormModal = closeCategoryFormModal;
             window.toggleTheme = toggleTheme;
             window.logout = logout;
-
+            window.handleImageFileSelect = handleImageFileSelect;
+            window.uploadImageToSupabase = uploadImageToSupabase;
+            window.clearImage = clearImage;
             
-            // Event listeners
+            // ============================================
+            // EVENT LISTENERS
+            // ============================================
             document.getElementById('searchBox')?.addEventListener('input', (e) => {
                 searchTerm = e.target.value;
                 renderItems();
@@ -1111,43 +1367,12 @@ body {
                 });
             });
             
-            // Initialize
+            // ============================================
+            // INITIALIZE
+            // ============================================
             checkAuth();
+            loadThemePreference();
             loadAllData();
-
-            // Theme toggle function
-function toggleTheme() {
-    const root = document.documentElement;
-    const themeToggle = document.getElementById('themeToggle');
-    const isLightMode = root.classList.contains('light-mode');
-    
-    if (isLightMode) {
-        root.classList.remove('light-mode');
-        localStorage.setItem('admin_theme', 'dark');
-        themeToggle.innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
-    } else {
-        root.classList.add('light-mode');
-        localStorage.setItem('admin_theme', 'light');
-        themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
-    }
-}
-
-// Load saved theme preference
-function loadThemePreference() {
-    const savedTheme = localStorage.getItem('admin_theme');
-    const themeToggle = document.getElementById('themeToggle');
-    
-    if (savedTheme === 'light') {
-        document.documentElement.classList.add('light-mode');
-        if (themeToggle) themeToggle.innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
-    } else {
-        document.documentElement.classList.remove('light-mode');
-        if (themeToggle) themeToggle.innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
-    }
-}
-
-// Call this after checkAuth() but before loadAllData()
-loadThemePreference();
         })();
     </script>
 </body>

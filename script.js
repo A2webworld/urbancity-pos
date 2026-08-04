@@ -5824,7 +5824,7 @@ setInterval(() => {
 // =============================================
 class MenuSyncService {
     constructor() {
-        this.menuUrl = 'https://urbancity.food/menu.json';
+        this.menuUrl = window.location.origin + '/menu.json';
         this.syncInterval = 5 * 60 * 1000;
         this.lastSync = null;
         this.startAutoSync();
