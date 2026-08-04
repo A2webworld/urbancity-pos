@@ -3018,7 +3018,7 @@ receipt += '══════════════════════�
     
     let orders = [];
     
-    // Fetch orders from Supabase (website orders + POS orders)
+    // Fetch orders from Supabase
     if (window.supabaseClient && window.supabaseConnected) {
         const { data, error } = await window.supabaseClient
             .from('orders')
@@ -3032,7 +3032,7 @@ receipt += '══════════════════════�
         }
     }
     
-    // Fallback to localStorage if Supabase fails
+    // Fallback to localStorage
     if (orders.length === 0) {
         orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
         orders = orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 20);
@@ -3069,7 +3069,7 @@ receipt += '══════════════════════�
             }
         }
         
-        // Status badge styling
+        // Status badge
         let statusBadge = '';
         let statusColor = '';
         switch(orderStatus) {
@@ -3081,13 +3081,13 @@ receipt += '══════════════════════�
             default: statusBadge = '📋'; statusColor = '#666';
         }
         
-        // FIX: Show instructions badge if present
+        // FIX: Instructions badge
         const instructionsBadge = hasInstructions ? 
             `<span style="font-size: 9px; background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">
                 📝 Special Instructions
             </span>` : '';
         
-        // FIX: Show instructions preview
+        // FIX: Instructions preview
         const instructionsPreview = hasInstructions ? 
             `<div style="font-size: 10px; color: #856404; margin-top: 3px; background: #fff3cd; padding: 2px 6px; border-radius: 4px; display: inline-block;">📝 ${specialInstructions.substring(0, 50)}${specialInstructions.length > 50 ? '...' : ''}</div>` : '';
         
@@ -6396,7 +6396,7 @@ function showOrderDetails(order) {
     const instructions = order.special_instructions || '';
     const instructionsHtml = instructions ? 
         `<div style="margin: 10px 0; padding: 10px; background: #fff3cd; border-radius: 8px; border-left: 3px solid #ff9800;">
-            <strong>📝 Special Instructions:</strong><br>
+            <strong style="color: #856404;">📝 Special Instructions:</strong><br>
             <span style="color: #856404; font-size: 13px;">${instructions}</span>
         </div>` : '';
     
