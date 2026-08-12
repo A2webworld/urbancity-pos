@@ -2480,9 +2480,10 @@ renderCategories() {
 }
 
     updateOrderDisplay() {
-        // Add this at the beginning of updateOrderDisplay() for debugging
-console.log('Order type:', this.orderType);
-console.log('Takeaway fee:', this.orderType === 'takeaway' ? 500 : 0);
+    // Add this at the beginning of updateOrderDisplay() for debugging
+    console.log('Order type:', this.orderType);
+    console.log('Takeaway fee:', this.orderType === 'takeaway' ? 550 : 0);
+    
     const orderItemsContainer = document.getElementById('orderItems');
     const subtotalElement = document.getElementById('subtotal');
     const taxElement = document.getElementById('tax');
@@ -2502,7 +2503,6 @@ console.log('Takeaway fee:', this.orderType === 'takeaway' ? 500 : 0);
         taxElement.textContent = '₦0';
         totalElement.textContent = '₦0';
         orderNumber.textContent = '-';
-        // Hide fee line when no items
         const feeLine = document.getElementById('feeLine');
         if (feeLine) feeLine.style.display = 'none';
         return;
@@ -2523,9 +2523,9 @@ console.log('Takeaway fee:', this.orderType === 'takeaway' ? 500 : 0);
                 <div class="item-price">₦${item.price.toLocaleString()} × ${item.quantity}</div>
             </div>
             <div class="item-quantity">
-                <button class="quantity-btn" onclick="pos.updateQuantity(${item.id}, -1)">  -</button>
+                <button class="quantity-btn" onclick="pos.updateQuantity('${item.id}', -1)">  -</button>
                 <span>${item.quantity}</span>
-                <button class="quantity-btn" onclick="pos.updateQuantity(${item.id}, 1)"> + </button>
+                <button class="quantity-btn" onclick="pos.updateQuantity('${item.id}', 1)"> + </button>
             </div>
         `;
         orderItemsContainer.appendChild(orderItem);
@@ -2533,10 +2533,8 @@ console.log('Takeaway fee:', this.orderType === 'takeaway' ? 500 : 0);
 
     // Tax is 0%
     const tax = 0;
-    
-    // Remove automatic takeaway fee - now manual only
-const takeawayFee = 0;  // Changed from automatic to manual
-const total = subtotal + takeawayFee;
+    const takeawayFee = 0;
+    const total = subtotal + takeawayFee;
 
     subtotalElement.textContent = `₦${subtotal.toLocaleString()}`;
     taxElement.textContent = `₦0`;
@@ -2554,7 +2552,6 @@ const total = subtotal + takeawayFee;
             feeLine.style.display = 'none';
         }
     } else {
-        // If elements don't exist, create them dynamically
         const totalsDiv = document.querySelector('.order-totals');
         if (totalsDiv && takeawayFee > 0) {
             const existingFee = document.querySelector('.fee-line');
@@ -2945,7 +2942,7 @@ async updateStaffSalesInSupabase() {
         receipt += `TOTAL                 ₦${total.toLocaleString().padStart(8)}\n`;
         receipt += '══════════════════════════════\n';
         if (this.orderType === 'takeaway') {
-    receipt += `Takeaway Fee:       ₦500\n`;
+    receipt += `Takeaway Fee:       ₦550\n`;
 }
 receipt += '══════════════════════════════\n';
         receipt += 'Thank you for your order!\n';
@@ -5838,178 +5835,252 @@ class MenuSyncService {
     }
 
     async syncMenu() {
-        try {
-            console.log('📥 Fetching menu from Supabase...');
-            
-            // ============================================
-            // FETCH DIRECTLY FROM SUPABASE
-            // ============================================
-            const { data: categories, error: catError } = await window.supabaseClient
-                .from('categories')
-                .select('*')
-                .eq('is_active', true)
-                .order('display_order', { ascending: true });
-            
-            if (catError) throw catError;
-            
-            const { data: menuItems, error: itemError } = await window.supabaseClient
-                .from('menu_items')
-                .select('*')
-                .eq('is_active', true);
-            
-            if (itemError) throw itemError;
-            
-            const { data: variants, error: varError } = await window.supabaseClient
-                .from('variants')
-                .select('*')
-                .order('display_order', { ascending: true });
-            
-            if (varError) throw varError;
-            
-            // Build menu data from Supabase
-            const menuData = {
-                categories: categories.map(cat => ({
-                    id: cat.category_id,
-                    name: cat.name,
-                    items: menuItems
-                        .filter(item => item.category_id === cat.category_id)
-                        .map(item => ({
+    try {
+        console.log('📥 Fetching menu from Supabase...');
+        
+        if (!window.supabaseClient || !window.supabaseConnected) {
+            console.log('⏳ Supabase not ready, trying fallback...');
+            return await this.syncFromJson();
+        }
+        
+        // Fetch from Supabase
+        const { data: categories, error: catError } = await window.supabaseClient
+            .from('categories')
+            .select('*')
+            .eq('is_active', true)
+            .order('display_order', { ascending: true });
+        
+        if (catError) throw catError;
+        
+        const { data: menuItems, error: itemError } = await window.supabaseClient
+            .from('menu_items')
+            .select('*')
+            .eq('is_active', true);
+        
+        if (itemError) throw itemError;
+        
+        const { data: variants, error: varError } = await window.supabaseClient
+            .from('variants')
+            .select('*')
+            .order('display_order', { ascending: true });
+        
+        if (varError) throw varError;
+        
+        // ============================================
+        // FIXED: Build menu data with proper price extraction
+        // ============================================
+        const menuData = {
+            categories: categories.map(cat => ({
+                id: cat.category_id,
+                name: cat.name,
+                items: menuItems
+                    .filter(item => item.category_id === cat.category_id)
+                    .map(item => {
+                        const itemVariants = variants.filter(v => v.menu_item_id === item.item_id);
+                        let price = 0;
+                        let priceDisplay = item.price_display || '';
+                        
+                        // ============================================
+                        // FIX: Extract price properly
+                        // ============================================
+                        if (itemVariants.length > 0) {
+                            // Item HAS variants - use first variant price
+                            price = itemVariants[0].price || 0;
+                            console.log(`📊 Item "${item.name}" has variants, using variant price: ₦${price}`);
+                        } else {
+                            // Item has NO variants - try to get price from multiple sources
+                            
+                            // 1. Try item.price field
+                            if (item.price && item.price > 0) {
+                                price = item.price;
+                                console.log(`📊 Item "${item.name}" using item.price: ₦${price}`);
+                            }
+                            // 2. Try to extract from price_display
+                            else if (item.price_display) {
+                                // Try ₦ format
+                                let match = item.price_display.match(/₦([\d,]+)/);
+                                if (match) {
+                                    price = parseInt(match[1].replace(/,/g, ''));
+                                    console.log(`📊 Item "${item.name}" extracted from ₦ format: ₦${price}`);
+                                }
+                                // Try # format (Nigerian Naira)
+                                if (price === 0) {
+                                    match = item.price_display.match(/#([\d,]+)/);
+                                    if (match) {
+                                        price = parseInt(match[1].replace(/,/g, ''));
+                                        console.log(`📊 Item "${item.name}" extracted from # format: ₦${price}`);
+                                    }
+                                }
+                                // Try plain number
+                                if (price === 0) {
+                                    match = item.price_display.match(/([\d,]+)/);
+                                    if (match) {
+                                        price = parseInt(match[1].replace(/,/g, ''));
+                                        console.log(`📊 Item "${item.name}" extracted from plain number: ₦${price}`);
+                                    }
+                                }
+                            }
+                            // 3. Try from item object price (if it exists)
+                            else if (item.price) {
+                                price = item.price;
+                                console.log(`📊 Item "${item.name}" using item.price (fallback): ₦${price}`);
+                            }
+                            
+                            // If still 0, log warning
+                            if (price === 0) {
+                                console.warn(`⚠️ Could not extract price for item: "${item.name}" (${item.item_id})`);
+                            }
+                        }
+                        
+                        return {
                             name: item.name,
                             description: item.description || '',
-                            price: variants.filter(v => v.menu_item_id === item.item_id)[0]?.price || null,
-                            price_display: item.price_display || '',
+                            price: price,
+                            price_display: priceDisplay,
                             image: item.image || '',
                             type: item.type || '',
                             tags: item.tags || [],
                             is_available: item.is_available ?? true,
                             stock: 100,
                             lowStock: 20,
-                            variants: variants
-                                .filter(v => v.menu_item_id === item.item_id)
-                                .map(v => ({
-                                    size: v.size,
-                                    price: v.price,
-                                    display: v.display || `${v.size} – ₦${v.price.toLocaleString()}`
-                                }))
-                        }))
-                }))
-            };
-            
-            console.log(`✅ Fetched ${menuData.categories.length} categories from Supabase`);
-            
-            // Update POS menu
-            this.updateMenuInPOS(menuData);
-            this.lastSync = new Date();
-            console.log('✅ Menu synced from Supabase successfully');
-            
-            if (pos && pos.currentStaff) {
-                showNotification('📋 Menu updated from Supabase!', 'success');
-            }
-            return true;
-            
-        } catch (error) {
-            console.error('❌ Menu sync failed:', error);
-            // Fallback to static JSON if Supabase fails
-            console.log('⚠️ Trying fallback to JSON file...');
-            try {
-                const response = await fetch(this.menuUrl + '?t=' + Date.now());
-                if (response.ok) {
-                    const menuData = await response.json();
-                    this.updateMenuInPOS(menuData);
-                    this.lastSync = new Date();
-                    console.log('✅ Menu synced from JSON fallback');
-                    return true;
-                }
-            } catch (fallbackError) {
-                console.error('❌ Fallback sync also failed:', fallbackError);
-            }
-            return false;
+                            variants: itemVariants.map(v => ({
+                                size: v.size,
+                                price: v.price,
+                                display: v.display || `${v.size} – ₦${v.price.toLocaleString()}`
+                            }))
+                        };
+                    })
+            }))
+        };
+        
+        console.log(`✅ Fetched ${menuData.categories.length} categories from Supabase`);
+        this.updateMenuInPOS(menuData);
+        this.lastSync = new Date();
+        console.log('✅ Menu synced from Supabase successfully');
+        
+        if (pos && pos.currentStaff) {
+            showNotification('📋 Menu updated from Supabase!', 'success');
         }
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Supabase sync failed:', error);
+        return await this.syncFromJson();
     }
+}
 
     updateMenuInPOS(menuData) {
-        if (!window.pos && typeof pos !== 'undefined') {
-            window.pos = pos;
-        }
-        
-        if (!window.pos) {
-            console.error('POS not ready, retrying...');
-            setTimeout(() => this.updateMenuInPOS(menuData), 2000);
-            return;
-        }
-        
-        let newMenuItems = [];
-        let itemId = 1;
-        
-        if (menuData.categories) {
-            menuData.categories.forEach(category => {
-                category.items.forEach(item => {
-                    const newItem = {
-                        id: itemId++,
-                        name: item.name,
-                        category: category.id,
-                        stock: item.stock || 100,
-                        lowStock: item.lowStock || 20,
-                        description: item.description || '',
-                        image: item.image || '',
-                        price: item.price || 0,
-                        price_display: item.price_display || '',
-                        type: item.type || '',
-                        tags: item.tags || [],
-                        is_available: item.is_available ?? true
-                    };
-                    
-                    // Check if item has variants
-                    if (item.variants && item.variants.length > 0) {
-                        newItem.variants = item.variants;
-                        newItem.hasVariants = true;
-                        // Set default price as first variant price
-                        newItem.price = item.variants[0].price || 0;
-                    } else {
-                        newItem.hasVariants = false;
-                        if (!newItem.price && item.price_display) {
-                            const match = item.price_display.match(/₦([\d,]+)/);
-                            if (match) {
-                                newItem.price = parseInt(match[1].replace(/,/g, ''));
-                            }
+    if (!window.pos && typeof pos !== 'undefined') {
+        window.pos = pos;
+    }
+    
+    if (!window.pos) {
+        console.error('POS not ready, retrying...');
+        setTimeout(() => this.updateMenuInPOS(menuData), 2000);
+        return;
+    }
+    
+    let newMenuItems = [];
+    let itemId = 1;
+    
+    if (menuData.categories) {
+        menuData.categories.forEach(category => {
+            category.items.forEach(item => {
+                // ============================================
+                // FIX: Ensure price is properly set
+                // ============================================
+                let finalPrice = item.price || 0;
+                
+                // If price is still 0, try to extract from price_display
+                if (finalPrice === 0 && item.price_display) {
+                    const match = item.price_display.match(/₦([\d,]+)/);
+                    if (match) {
+                        finalPrice = parseInt(match[1].replace(/,/g, ''));
+                    }
+                    if (finalPrice === 0) {
+                        const match2 = item.price_display.match(/#([\d,]+)/);
+                        if (match2) {
+                            finalPrice = parseInt(match2[1].replace(/,/g, ''));
                         }
                     }
-                    
-                    newMenuItems.push(newItem);
-                });
-            });
-        }
-        
-        // Update POS menu items
-        if (newMenuItems.length > 0) {
-            const oldMenuItems = window.pos.menuItems || [];
-            
-            // Preserve stock from existing items
-            newMenuItems = newMenuItems.map(newItem => {
-                const oldItem = oldMenuItems.find(o => o.name === newItem.name && o.category === newItem.category);
-                if (oldItem) {
-                    newItem.stock = oldItem.stock;
-                    newItem.lowStock = oldItem.lowStock;
-                    if (oldItem.variants && !newItem.variants) {
-                        newItem.variants = oldItem.variants;
+                }
+                
+                console.log(`📊 Processing item: "${item.name}" → Price: ₦${finalPrice}`);
+                
+                const newItem = {
+                    id: itemId++,
+                    name: item.name,
+                    category: category.id,
+                    stock: item.stock || 100,
+                    lowStock: item.lowStock || 20,
+                    description: item.description || '',
+                    image: item.image || '',
+                    price: finalPrice,
+                    price_display: item.price_display || '',
+                    type: item.type || '',
+                    tags: item.tags || [],
+                    is_available: item.is_available ?? true
+                };
+                
+                // Check if item has variants
+                if (item.variants && item.variants.length > 0) {
+                    newItem.variants = item.variants;
+                    newItem.hasVariants = true;
+                    // Use first variant price if item price is 0
+                    if (finalPrice === 0 && item.variants[0].price) {
+                        newItem.price = item.variants[0].price;
+                    }
+                } else {
+                    newItem.hasVariants = false;
+                    // If price is still 0, try to extract from price_display one more time
+                    if (newItem.price === 0 && newItem.price_display) {
+                        const match = newItem.price_display.match(/₦([\d,]+)/);
+                        if (match) {
+                            newItem.price = parseInt(match[1].replace(/,/g, ''));
+                        }
                     }
                 }
-                return newItem;
+                
+                newMenuItems.push(newItem);
             });
-            
-            window.pos.menuItems = newMenuItems;
-            window.pos.saveMenuItems();
-            window.pos.saveLocalPriceBackup();
-            
-            // Re-render menu if POS is active
-            if (document.getElementById('posScreen')?.classList.contains('active')) {
-                window.pos.renderMenuItems();
-                window.pos.renderCategories();
-            }
-            
-            console.log('📋 Menu updated with', newMenuItems.length, 'items from Supabase');
-        }
+        });
     }
+    
+    // Update POS menu items
+    if (newMenuItems.length > 0) {
+        const oldMenuItems = window.pos.menuItems || [];
+        
+        // Preserve stock from existing items
+        newMenuItems = newMenuItems.map(newItem => {
+            const oldItem = oldMenuItems.find(o => o.name === newItem.name && o.category === newItem.category);
+            if (oldItem) {
+                newItem.stock = oldItem.stock;
+                newItem.lowStock = oldItem.lowStock;
+                if (oldItem.variants && !newItem.variants) {
+                    newItem.variants = oldItem.variants;
+                }
+                // Keep old price if new price is 0
+                if (newItem.price === 0 && oldItem.price > 0) {
+                    newItem.price = oldItem.price;
+                    console.log(`📊 Item "${newItem.name}" using old price: ₦${oldItem.price}`);
+                }
+            }
+            return newItem;
+        });
+        
+        window.pos.menuItems = newMenuItems;
+        window.pos.saveMenuItems();
+        window.pos.saveLocalPriceBackup();
+        
+        // Re-render menu if POS is active
+        if (document.getElementById('posScreen')?.classList.contains('active')) {
+            window.pos.renderMenuItems();
+            window.pos.renderCategories();
+        }
+        
+        console.log('📋 Menu updated with', newMenuItems.length, 'items from Supabase');
+    }
+}
 
     async manualSync() {
         showNotification('🔄 Syncing from Supabase...', 'info');
@@ -6401,7 +6472,7 @@ function addTakeawayFee() {
     const feeItem = {
         id: 9999,
         name: 'Takeaway Fee',
-        price: 500,
+        price: 550,
         quantity: 1,
         category: 'fee',
         stock: 999,
@@ -6409,7 +6480,7 @@ function addTakeawayFee() {
     };
     
     pos.addToOrder(feeItem);
-    showNotification('✓ Takeaway fee of ₦500 added', 'success');
+    showNotification('✓ Takeaway fee of ₦550 added', 'success');
 }
 
 function clearAllLocalOrders() {
