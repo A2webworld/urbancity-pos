@@ -985,8 +985,12 @@ showPOSScreen() {
     this.updateTime();
     this.renderMenuItems();
     this.renderCategories();
-    this.updateActiveOrdersCount();
+    
+    // ============================================
+    // LOAD ORDERS IMMEDIATELY AFTER LOGIN
+    // ============================================
     this.loadRecentOrders();
+    this.updateActiveOrdersCount();
 
     setInterval(() => this.updateTime(), 1000);
     
@@ -994,15 +998,15 @@ showPOSScreen() {
     setTimeout(() => {
         this.autoSyncLocalOrders();
     }, 3000);
-    // ===== END OF AUTO-SYNC =====
     
+    // ===== SETUP REAL-TIME LISTENER =====
     setTimeout(() => {
         if (!this.realtimeChannel) {
             this.setupRealtimeOrderListener();
         }
     }, 2000);
     
-    // ===== ADD THIS RIGHT HERE =====
+    // ===== SETUP PAYMENT SELECTOR =====
     setTimeout(() => {
         setupPOSPaymentSelector();
         console.log('🎯 Payment selector initialized!');
@@ -1048,14 +1052,15 @@ setupRealtimeOrderListener() {
                 // Show notification
                 this.showNewOrderAlert(newOrder);
                 
-                // Add to recent orders list
-                this.addOrderToRecentList(newOrder);
-                
-                // Update order count
-                this.updateActiveOrdersCount();
-                
-                // Refresh the recent orders display
-                this.loadRecentOrders();
+                // ============================================
+                // FIX: Force refresh of recent orders
+                // ============================================
+                // Add a small delay to ensure the order is fully saved
+                setTimeout(() => {
+                    this.loadRecentOrders();
+                    this.updateActiveOrdersCount();
+                    console.log('🔄 Recent orders refreshed after new order');
+                }, 500);
             }
         )
         .subscribe((status) => {
@@ -1219,8 +1224,16 @@ addOrderToRecentList(order) {
     const activeOrdersList = document.getElementById('activeOrdersList');
     if (!activeOrdersList) return;
     
+    // Check if order already exists in the list
+    const existingOrder = activeOrdersList.querySelector(`[data-order-id="${order.id}"]`);
+    if (existingOrder) {
+        console.log('Order already in list, refreshing...');
+        this.loadRecentOrders();
+        return;
+    }
+    
     const orderHTML = `
-        <div class="active-order-item new-order-highlight" data-order-id="${order.id}">
+        <div class="active-order-item new-order-highlight" data-order-id="${order.id}" onclick='showOrderDetails(${JSON.stringify(order).replace(/'/g, "\\'")})' style="border-left: 3px solid #ff9800; margin-bottom: 8px; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
             <div>
                 <strong>#${order.order_number || order.id}</strong><br>
                 <small>${new Date(order.created_at).toLocaleTimeString()}</small>
@@ -1240,6 +1253,16 @@ addOrderToRecentList(order) {
     setTimeout(() => {
         if (newElement) newElement.classList.remove('new-order-highlight');
     }, 3000);
+    
+    // Keep only last 50 orders in the list
+    const items = activeOrdersList.querySelectorAll('.active-order-item');
+    if (items.length > 50) {
+        items.forEach((item, index) => {
+            if (index >= 50) {
+                item.remove();
+            }
+        });
+    }
 }
 
 // Add CSS for animations
@@ -2006,43 +2029,6 @@ async saveCustomerToSupabase(orderData, totalAmount) {
         this.updateOrderTypeDisplay();
     }
 
-    showPOSScreen() {
-    const loginScreen = document.getElementById('loginScreen');
-    const posScreen = document.getElementById('posScreen');
-    
-    if (loginScreen) {
-        loginScreen.classList.remove('active');
-    }
-    
-    if (posScreen) {
-        posScreen.classList.add('active');
-    }
-    
-    document.getElementById('currentStaff').textContent = this.currentStaff.display_name;
-    document.getElementById('currentServerName').textContent = this.currentStaff.display_name;
-    
-    this.updateManagerAccess();
-    this.updateTime();
-    this.renderMenuItems();
-    this.renderCategories();
-    this.updateActiveOrdersCount();
-    this.loadRecentOrders();
-
-    setInterval(() => this.updateTime(), 1000);
-    
-    // ===== ADD AUTO-SYNC HERE =====
-    setTimeout(() => {
-        this.autoSyncLocalOrders();
-    }, 3000);
-    // ===== END OF AUTO-SYNC =====
-    // Add this at the end of showPOSScreen()
-setTimeout(() => {
-    if (!this.realtimeChannel) {
-        this.setupRealtimeOrderListener();
-    }
-}, 2000);
-}
-
     updateManagerAccess() {
         const managerBtn = document.getElementById('managerDashboardBtn');
         const editDisplayNameBtn = document.querySelector('.edit-display-name-btn');
@@ -2431,8 +2417,8 @@ renderCategories() {
     updateQuantity(itemId, change) {
     console.log('updateQuantity called:', itemId, change);
     
-    // Find the item in current order (this works with compound IDs)
-    const item = this.currentOrder.find(orderItem => orderItem.id === itemId);
+    // Find the item in current order - convert to string for comparison
+    const item = this.currentOrder.find(orderItem => String(orderItem.id) === String(itemId));
     if (!item) {
         console.log('Item not found in order:', itemId);
         return;
@@ -2442,34 +2428,40 @@ renderCategories() {
     
     if (newQuantity <= 0) {
         // Remove item from order
-        this.currentOrder = this.currentOrder.filter(orderItem => orderItem.id !== itemId);
+        this.currentOrder = this.currentOrder.filter(orderItem => String(orderItem.id) !== String(itemId));
         showNotification(`✓ ${item.name} removed from order`, 'info');
     } else {
         // Update quantity
         item.quantity = newQuantity;
         
-        // Update stock for the base menu item (extract base ID)
-        let baseItemId = itemId;
-        if (typeof itemId === 'string' && itemId.includes('_')) {
-            // For variant items, extract the base ID (everything before the first underscore)
-            baseItemId = parseInt(itemId.split('_')[0]);
-        }
+        // ============================================
+        // FIX: Check if this is a special item (fee, water, or no variants)
+        // ============================================
+        const isSpecialItem = 
+            String(itemId) === '9999' || 
+            (item.name && item.name.includes('Takeaway Fee')) ||
+            (item.name && item.name.includes('Water')) ||
+            // Check if this item has no variants in the menu
+            (this.menuItems && !this.menuItems.some(m => String(m.id) === String(itemId) && m.variants && m.variants.length > 0));
         
-        const menuItem = this.menuItems.find(m => m.id == baseItemId);
-        if (menuItem) {
-            if (change > 0 && menuItem.stock <= 0) {
-                showNotification(`❌ ${item.name} is out of stock!`, 'error');
-                return;
+        if (!isSpecialItem) {
+            // Only manage stock for regular items with variants
+            let baseItemId = itemId;
+            if (typeof itemId === 'string' && itemId.includes('_')) {
+                baseItemId = parseInt(itemId.split('_')[0]);
             }
-            menuItem.stock = Math.max(0, menuItem.stock - change);
-            this.saveMenuItems();
-        } else if (change < 0) {
-            // Return stock when decreasing quantity for non-variant items
-            const returnStockItem = this.menuItems.find(m => m.id == itemId);
-            if (returnStockItem) {
-                returnStockItem.stock += Math.abs(change);
+            
+            const menuItem = this.menuItems.find(m => String(m.id) === String(baseItemId));
+            if (menuItem) {
+                if (change > 0 && menuItem.stock <= 0) {
+                    showNotification(`❌ ${item.name} is out of stock!`, 'error');
+                    return;
+                }
+                menuItem.stock = Math.max(0, menuItem.stock - change);
                 this.saveMenuItems();
             }
+        } else {
+            console.log('🔄 Special item (fee/water/no variants) - no stock management:', item.name);
         }
     }
     
@@ -2969,15 +2961,16 @@ receipt += '══════════════════════�
     
     const updateCount = async () => {
         let count = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
         
-        // Try Supabase first
+        console.log('📊 Counting orders for today:', today.toDateString());
+        
+        // Try Supabase first - TODAY ONLY
         if (window.supabaseClient && window.supabaseConnected) {
             try {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                
                 const { count: supabaseCount, error } = await window.supabaseClient
                     .from('orders')
                     .select('*', { count: 'exact', head: true })
@@ -2986,60 +2979,99 @@ receipt += '══════════════════════�
                 
                 if (!error && supabaseCount !== null) {
                     count = supabaseCount;
-                    console.log('Supabase count:', count);
+                    console.log('✅ Supabase count (today):', count);
+                } else {
+                    console.error('Supabase count error:', error);
                 }
             } catch (error) {
                 console.error('Failed to get count from Supabase:', error);
             }
         }
         
-        // If Supabase failed or no connection, use localStorage
+        // If Supabase failed or no connection, use localStorage - TODAY ONLY
         if (count === 0) {
             const orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
-            const today = new Date().toDateString();
+            const todayStr = today.toDateString();
             count = orders.filter(order => {
-                const orderDate = new Date(order.created_at || order.timestamp).toDateString();
-                return orderDate === today;
+                const orderDate = new Date(order.created_at || order.timestamp);
+                return orderDate.toDateString() === todayStr;
             }).length;
-            console.log('LocalStorage count:', count);
+            console.log('📊 LocalStorage count (today):', count);
         }
         
-        activeOrdersElement.textContent = count;
+        // Update the display
+        if (activeOrdersElement) {
+            activeOrdersElement.textContent = count;
+            // Also update any other display showing order count
+            const orderCountElements = document.querySelectorAll('.order-count, .today-orders-count');
+            orderCountElements.forEach(el => {
+                el.textContent = count;
+            });
+        }
     };
     
-    updateCount();  // ← IMPORTANT: This actually runs the function
+    updateCount();
 }
     async loadRecentOrders() {
     const activeOrdersList = document.getElementById('activeOrdersList');
     if (!activeOrdersList || !this.currentStaff) return;
     
     let orders = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    // Fetch orders from Supabase
+    console.log('📋 Loading orders for today:', today.toDateString());
+    
+    // Fetch orders from Supabase - TODAY ONLY
     if (window.supabaseClient && window.supabaseConnected) {
-        const { data, error } = await window.supabaseClient
-            .from('orders')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(20);
-        
-        if (!error && data) {
-            orders = data;
-            console.log('📋 Loaded', orders.length, 'orders from Supabase');
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('orders')
+                .select('*')
+                .gte('created_at', today.toISOString())
+                .lt('created_at', tomorrow.toISOString())
+                .order('created_at', { ascending: false })
+                .limit(50); // Increased limit to show more orders
+            
+            if (!error && data) {
+                orders = data;
+                console.log(`✅ Loaded ${orders.length} orders from Supabase (Today only)`);
+            } else {
+                console.error('Supabase orders error:', error);
+            }
+        } catch (error) {
+            console.error('Failed to fetch today\'s orders from Supabase:', error);
         }
     }
     
-    // Fallback to localStorage
+    // Fallback to localStorage - TODAY ONLY
     if (orders.length === 0) {
-        orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
-        orders = orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 20);
+        const localOrders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+        const todayStr = today.toDateString();
+        
+        orders = localOrders.filter(order => {
+            const orderDate = new Date(order.created_at || order.timestamp);
+            return orderDate.toDateString() === todayStr;
+        });
+        
+        orders = orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 50);
+        console.log(`✅ Loaded ${orders.length} orders from localStorage (Today only)`);
     }
     
+    // If still no orders, show empty state
     if (orders.length === 0) {
-        activeOrdersList.innerHTML = `<div class="empty-state"><small>No recent orders</small></div>`;
+        activeOrdersList.innerHTML = `
+            <div class="empty-state" style="text-align:center;padding:20px;color:#888;">
+                <i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:10px;"></i>
+                No orders today
+            </div>
+        `;
         return;
     }
     
+    // Build orders HTML
     let ordersHTML = '';
     orders.forEach(order => {
         const orderNumber = order.order_number || order.id;
@@ -3047,7 +3079,6 @@ receipt += '══════════════════════�
         const total = order.total || 0;
         const orderType = order.order_type || 'takeaway';
         const orderStatus = order.order_status || 'pending';
-        // FIX: Get special instructions
         const specialInstructions = order.special_instructions || '';
         const hasInstructions = specialInstructions && specialInstructions.length > 0;
         
@@ -3062,7 +3093,7 @@ receipt += '══════════════════════�
             } else if (diffMinutes < 1440) {
                 timeDisplay = `${Math.floor(diffMinutes / 60)}h ago`;
             } else {
-                timeDisplay = orderDate.toLocaleDateString();
+                timeDisplay = orderDate.toLocaleTimeString();
             }
         }
         
@@ -3078,18 +3109,16 @@ receipt += '══════════════════════�
             default: statusBadge = '📋'; statusColor = '#666';
         }
         
-        // FIX: Instructions badge
         const instructionsBadge = hasInstructions ? 
             `<span style="font-size: 9px; background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">
                 📝 Special Instructions
             </span>` : '';
         
-        // FIX: Instructions preview
         const instructionsPreview = hasInstructions ? 
             `<div style="font-size: 10px; color: #856404; margin-top: 3px; background: #fff3cd; padding: 2px 6px; border-radius: 4px; display: inline-block;">📝 ${specialInstructions.substring(0, 50)}${specialInstructions.length > 50 ? '...' : ''}</div>` : '';
         
         ordersHTML += `
-            <div class="active-order-item" data-order-id="${order.id}" onclick='showOrderDetails(${JSON.stringify(order).replace(/'/g, "\\'")})' style="border-left: 3px solid ${statusColor}; margin-bottom: 8px; cursor: pointer;">
+            <div class="active-order-item" data-order-id="${order.id}" onclick='showOrderDetails(${JSON.stringify(order).replace(/'/g, "\\'")})' style="border-left: 3px solid ${statusColor}; margin-bottom: 8px; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
                 <div style="flex: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
                         <strong>#${orderNumber}</strong>
@@ -3129,7 +3158,6 @@ receipt += '══════════════════════�
         });
     });
 }
-
 async updateOrderStatus(orderId, newStatus) {
     if (!window.supabaseClient) return;
     
@@ -6484,50 +6512,32 @@ function addTakeawayFee() {
 }
 
 function clearAllLocalOrders() {
-    if (confirm('⚠️ WARNING: This will delete ALL order records and customers from THIS DEVICE and CLOUD. This cannot be undone. Are you sure?')) {
+    if (confirm('⚠️ WARNING: This will delete ALL order records from THIS DEVICE only. Orders in the cloud will remain. This cannot be undone. Are you sure?')) {
         if (confirm('LAST CHANCE: Type "CLEAR ALL" to confirm')) {
             const confirmation = prompt('Type "CLEAR ALL" to confirm:');
             if (confirmation === 'CLEAR ALL') {
                 
-                // 1. Clear local storage
+                // 1. Clear local storage orders
                 localStorage.removeItem('restaurantOrders');
                 localStorage.removeItem('syncedOrderIds');
-                localStorage.removeItem('restaurantCustomers');
                 localStorage.setItem('orderCounter', JSON.stringify({ 
                     date: new Date().toDateString(), 
                     count: 0 
                 }));
                 
-                // 2. Clear customers from Supabase cloud
-                if (window.supabaseClient && window.supabaseConnected) {
-                    showNotification('🗑️ Clearing customers from cloud...', 'info');
-                    
-                    // Delete all customers from Supabase
-                    window.supabaseClient
-                        .from('customers')
-                        .delete()
-                        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all records
-                        .then(({ error }) => {
-                            if (error) {
-                                console.error('Failed to clear cloud customers:', error);
-                                showNotification('⚠️ Failed to clear cloud customers. Run SQL manually.', 'error');
-                            } else {
-                                showNotification('✅ Cloud customers cleared!', 'success');
-                            }
-                        });
-                }
-                
-                // 3. Reset POS state
+                // 2. Reset POS state
                 if (pos) {
                     pos.currentOrder = [];
                     pos.orderCounter = { date: new Date().toDateString(), count: 0 };
                     pos.updateOrderDisplay();
                     pos.updateButtonStates();
-                    pos.updateActiveOrdersCount();
+                    
+                    // Force refresh of recent orders
                     pos.loadRecentOrders();
+                    pos.updateActiveOrdersCount();
                 }
                 
-                showNotification('✅ All local orders cleared! Refreshing...', 'success');
+                showNotification('✅ All local orders cleared!', 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
                 showNotification('❌ Clear cancelled - incorrect confirmation', 'error');
