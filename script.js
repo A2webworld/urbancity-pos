@@ -2661,45 +2661,48 @@ renderCategories() {
         const subtotal = this.currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const total = subtotal;
         
-        const orderCounter = this.orderCounter.count + 1;
-        const orderNumber = `POS-${String(orderCounter).padStart(4, '0')}`;
+        // ============================================
+        // FIX: Generate unique order number using timestamp + random
+        // ============================================
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 10000);
+        const orderNumber = `POS-${timestamp}-${random}`;
         
         // Get selected payment method from POS
         const paymentMethod = typeof posPaymentMethod !== 'undefined' ? posPaymentMethod : 'cash';
         
         const orderData = {
-    id: orderNumber,
-    order_number: orderNumber,
-    staff_id: this.currentStaff.id,
-    staff_name: this.currentStaff.display_name,
-    customer_name: 'Walk-in Customer',
-    customer_phone: `POS-${orderNumber}`,
-    customer_email: null,
-    delivery_address: null,
-    pickup_location: null,
-    items: this.currentOrder.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        variant: item.variant || null
-    })),
-    subtotal: subtotal,
-    takeaway_fee: 0,
-    total: total,
-    order_type: this.orderType,
-    payment_method: paymentMethod,
-    payment_status: 'paid',
-    status: 'completed',  // ✅ FIXED: Use 'status' not 'order_status'
-    special_instructions: '',
-    created_at: new Date().toISOString(),
-    tax: 0,
-    updated_at: new Date().toISOString()
-};
+            id: orderNumber,
+            order_number: orderNumber,
+            staff_id: this.currentStaff.id,
+            staff_name: this.currentStaff.display_name,
+            customer_name: 'Walk-in Customer',
+            customer_phone: `POS-${orderNumber}`,
+            customer_email: null,
+            delivery_address: null,
+            pickup_location: null,
+            items: this.currentOrder.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                variant: item.variant || null
+            })),
+            subtotal: subtotal,
+            takeaway_fee: 0,
+            total: total,
+            order_type: this.orderType,
+            payment_method: paymentMethod,
+            payment_status: 'paid',
+            status: 'completed',
+            special_instructions: '',
+            created_at: new Date().toISOString(),
+            tax: 0,
+            updated_at: new Date().toISOString()
+        };
 
-        // ============================================
-        // FIX: Always save to Supabase first
-        // ============================================
+        console.log('💾 Saving order to Supabase:', orderData);
+
         let cloudSaved = false;
         let supabaseError = null;
         
@@ -2726,25 +2729,20 @@ renderCategories() {
             console.warn('⚠️ Supabase not connected, saving locally only');
         }
         
-        // ============================================
         // Always save to local storage as backup
-        // ============================================
         const orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
         orders.push(orderData);
         localStorage.setItem('restaurantOrders', JSON.stringify(orders));
         
-        // Update order counter
+        // Update order counter (keep for reference, but not used for ID generation)
         this.orderCounter.count++;
         localStorage.setItem('orderCounter', JSON.stringify(this.orderCounter));
         
         // Update staff sales locally
         staffManager.recordStaffSale(this.currentStaff.id, total);
         
-        // ============================================
-        // FIX: If cloud save failed, mark as unsynced
-        // ============================================
+        // If cloud save failed, mark as unsynced
         if (!cloudSaved) {
-            // Remove from synced IDs so it will be retried
             let syncedIds = JSON.parse(localStorage.getItem('syncedOrderIds') || '[]');
             syncedIds = syncedIds.filter(id => id !== orderNumber);
             localStorage.setItem('syncedOrderIds', JSON.stringify(syncedIds));
@@ -3339,14 +3337,11 @@ receipt += '══════════════════════�
         return;
     }
     
-    // Build orders HTML (filter out POS orders from website orders)
-    const websiteOrders = orders.filter(order => {
-        const isPosOrder = order.order_number && order.order_number.startsWith('POS-');
-        return !isPosOrder;
-    });
-    
-    // Display website orders only in Recent Orders
-    const displayOrders = websiteOrders.length > 0 ? websiteOrders : orders;
+    // Show ALL orders - both website and POS
+const displayOrders = orders;
+
+// If you want to show all orders but mark POS orders differently:
+console.log(`📋 Displaying ${displayOrders.length} orders (including POS orders)`);
     
     if (displayOrders.length === 0) {
         activeOrdersList.innerHTML = `
@@ -3360,14 +3355,19 @@ receipt += '══════════════════════�
     
     let ordersHTML = '';
     displayOrders.forEach(order => {
-        // ... rest of the function (same as before)
-        const orderNumber = order.order_number || order.id;
-        const customerName = order.customer_name || 'Walk-in Customer';
-        const total = order.total || 0;
-        const orderType = order.order_type || 'takeaway';
-        const orderStatus = order.status || 'pending';
-        const specialInstructions = order.special_instructions || '';
-        const hasInstructions = specialInstructions && specialInstructions.length > 0;
+    const orderNumber = order.order_number || order.id;
+    const customerName = order.customer_name || 'Walk-in Customer';
+    const total = order.total || 0;
+    const orderType = order.order_type || 'takeaway';
+    const orderStatus = order.status || 'pending';
+    const specialInstructions = order.special_instructions || '';
+    const hasInstructions = specialInstructions && specialInstructions.length > 0;
+    
+    // ============================================
+    // ADD THIS: Check if it's a POS order
+    // ============================================
+    const isPosOrder = orderNumber && orderNumber.startsWith('POS-');
+    const orderLabel = isPosOrder ? '🖥️ POS' : '🌐 Web';
         
         let timeDisplay = 'Just now';
         if (order.created_at) {
@@ -3403,33 +3403,34 @@ receipt += '══════════════════════�
             `<div style="font-size: 10px; color: #856404; margin-top: 3px; background: #fff3cd; padding: 2px 6px; border-radius: 4px; display: inline-block;">📝 ${specialInstructions.substring(0, 50)}${specialInstructions.length > 50 ? '...' : ''}</div>` : '';
         
         ordersHTML += `
-            <div class="active-order-item" data-order-id="${order.id}" onclick='showOrderDetails(${JSON.stringify(order).replace(/'/g, "\\'")})' style="border-left: 3px solid ${statusColor}; margin-bottom: 8px; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                <div style="flex: 1;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                        <strong>#${orderNumber}</strong>
-                        ${instructionsBadge}
-                        <span style="font-size: 10px; background: ${statusColor}20; padding: 2px 6px; border-radius: 10px;">
-                            ${statusBadge} ${orderStatus.toUpperCase()}
-                        </span>
-                    </div>
-                    <div style="font-size: 11px; color: #666;">${customerName}</div>
-                    <div style="font-size: 10px; color: #999;">${timeDisplay} | ${orderType === 'delivery' ? '🚚' : '🏃'}</div>
-                    ${instructionsPreview}
-                </div>
-                <div style="text-align: right;">
-                    <div><strong>₦${total.toLocaleString()}</strong></div>
-                    <div style="margin-top: 5px;">
-                        <select class="order-status-select" data-order-id="${order.id}" style="font-size: 10px; padding: 2px 5px; border-radius: 5px;">
-                            <option value="pending" ${orderStatus === 'pending' ? 'selected' : ''}>⏳ Pending</option>
-                            <option value="confirmed" ${orderStatus === 'confirmed' ? 'selected' : ''}>✅ Confirmed</option>
-                            <option value="preparing" ${orderStatus === 'preparing' ? 'selected' : ''}>🍳 Preparing</option>
-                            <option value="ready" ${orderStatus === 'ready' ? 'selected' : ''}>📦 Ready</option>
-                            <option value="completed" ${orderStatus === 'completed' ? 'selected' : ''}>🎉 Completed</option>
-                        </select>
-                    </div>
-                </div>
+    <div class="active-order-item" data-order-id="${order.id}" onclick='showOrderDetails(${JSON.stringify(order).replace(/'/g, "\\'")})' style="border-left: 3px solid ${statusColor}; margin-bottom: 8px; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+        <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <strong>#${orderNumber}</strong>
+                <span style="font-size: 9px; color: #888; margin: 0 5px;">${orderLabel}</span>
+                ${instructionsBadge}
+                <span style="font-size: 10px; background: ${statusColor}20; padding: 2px 6px; border-radius: 10px;">
+                    ${statusBadge} ${orderStatus.toUpperCase()}
+                </span>
             </div>
-        `;
+            <div style="font-size: 11px; color: #666;">${customerName}</div>
+            <div style="font-size: 10px; color: #999;">${timeDisplay} | ${orderType === 'delivery' ? '🚚' : '🏃'}</div>
+            ${instructionsPreview}
+        </div>
+        <div style="text-align: right;">
+            <div><strong>₦${total.toLocaleString()}</strong></div>
+            <div style="margin-top: 5px;">
+                <select class="order-status-select" data-order-id="${order.id}" style="font-size: 10px; padding: 2px 5px; border-radius: 5px;">
+                    <option value="pending" ${orderStatus === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                    <option value="confirmed" ${orderStatus === 'confirmed' ? 'selected' : ''}>✅ Confirmed</option>
+                    <option value="preparing" ${orderStatus === 'preparing' ? 'selected' : ''}>🍳 Preparing</option>
+                    <option value="ready" ${orderStatus === 'ready' ? 'selected' : ''}>📦 Ready</option>
+                    <option value="completed" ${orderStatus === 'completed' ? 'selected' : ''}>🎉 Completed</option>
+                </select>
+            </div>
+        </div>
+    </div>
+`;
     });
     
     activeOrdersList.innerHTML = ordersHTML;
