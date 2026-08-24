@@ -1383,6 +1383,7 @@ async autoSyncLocalOrders() {
         try {
             // Prepare order data for Supabase
             const orderData = {
+    id: order.order_number,  // ← ADD THIS
     order_number: order.order_number,
     staff_id: order.staff_id || 'unknown',
     staff_name: order.staff_name || 'Unknown Staff',
@@ -2851,9 +2852,6 @@ async updateStaffSalesInSupabase() {
 
     async checkout() {
     try {
-        // ============================================
-        // FIX: Get the last saved order from localStorage
-        // ============================================
         const orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
         const lastOrder = orders[orders.length - 1];
         
@@ -2862,7 +2860,6 @@ async updateStaffSalesInSupabase() {
             return;
         }
         
-        // Use the last saved order for printing
         const orderItems = lastOrder.items || [];
         const orderTotal = lastOrder.total || 0;
         const orderNumber = lastOrder.order_number || document.getElementById('orderNumber').textContent;
@@ -2873,67 +2870,72 @@ async updateStaffSalesInSupabase() {
         }
         
         console.log('🖨️ Printing last saved order:', orderNumber);
-        console.log('📋 Items:', orderItems);
-
-        // ============================================
-        // Generate receipt from last order
-        // ============================================
+        
+        // Generate receipt content
         const receiptContent = this.generateReceiptContentFromOrder(orderItems, orderNumber, orderTotal);
         
-        // Print receipt
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Print Receipt</title>
-                <style>
-                    @media print {
-                        @page { 
-                            size: 80mm auto;
-                            margin: 0;
-                            padding: 0;
-                        }
-                        body { 
-                            width: 80mm;
-                            margin: 0;
-                            padding: 5mm;
-                            font-family: 'Courier New', monospace;
-                            font-size: 11px;
-                            line-height: 1;
-                        }
-                    }
-                    body {
-                        font-family: 'Courier New', monospace;
-                        font-size: 11px;
-                        line-height: 1.2;
-                        width: 80mm;
-                        margin: 0 auto;
-                        padding: 5mm;
-                    }
-                    .receipt {
-                        white-space: pre-wrap;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt">${receiptContent.replace(/\n/g, '<br>')}</div>
-                <script>
-                    window.onload = function() {
-                        setTimeout(() => {
-                            window.print();
-                            setTimeout(() => window.close(), 500);
-                        }, 100);
-                    }
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+        // ============================================
+        // QZ TRAY PRINTING
+        // ============================================
+        let printed = false;
         
-        // Update staff sales
+        // Check if QZ Tray is available
+        if (typeof qz !== 'undefined') {
+            try {
+                console.log('🔌 Connecting to QZ Tray...');
+                await qz.websocket.connect();
+                console.log('✅ QZ Tray connected');
+                
+                // Get default printer
+                const printers = await qz.printers.find();
+                const defaultPrinter = printers.length > 0 ? printers[0].name : 'POS-80';
+                console.log('🖨️ Using printer:', defaultPrinter);
+                
+                // Create print data - format for thermal receipt printer
+                const config = qz.configs.create(defaultPrinter);
+                
+                // Format receipt for thermal printer
+                const printData = [
+                    {
+                        type: 'text',
+                        data: receiptContent,
+                        options: {
+                            encoding: 'utf-8',
+                            language: 'en',
+                            font: 'monospace',
+                            size: 12,
+                            align: 'center'
+                        }
+                    }
+                ];
+                
+                // Send to printer
+                await qz.print(config, printData);
+                console.log('✅ Receipt sent to printer!');
+                printed = true;
+                
+                // Disconnect
+                await qz.websocket.disconnect();
+                
+                showNotification('🖨️ Receipt sent to printer!', 'success');
+                
+            } catch (qzError) {
+                console.error('❌ QZ Tray error:', qzError);
+                // Fallback to browser print
+                this.printWithBrowser(receiptContent);
+                printed = true;
+                showNotification('⚠️ QZ Tray failed, using browser print', 'warning');
+            }
+        }
+        
+        // If QZ Tray not available or failed, use browser print
+        if (!printed) {
+            console.log('⚠️ QZ Tray not available, using browser print');
+            this.printWithBrowser(receiptContent);
+        }
+        
         staffManager.recordStaffSale(this.currentStaff.id, orderTotal);
         
-        // Clear current order after printing
         this.currentOrder = [];
         this.isOrderSaved = false;
         this.updateOrderDisplay();
@@ -2942,12 +2944,66 @@ async updateStaffSalesInSupabase() {
         this.updateActiveOrdersCount();
         this.loadRecentOrders();
         
-        showNotification('✅ Order printed successfully!', 'success');
+        showNotification('✅ Order completed!', 'success');
 
     } catch (error) {
         console.error('Checkout/Print error:', error);
         showNotification('Checkout failed: ' + error.message, 'error');
     }
+}
+
+// ============================================
+// FALLBACK: Browser Print
+// ============================================
+printWithBrowser(receiptContent) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Print Receipt</title>
+            <style>
+                @media print {
+                    @page { 
+                        size: 80mm auto;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    body { 
+                        width: 80mm;
+                        margin: 0;
+                        padding: 5mm;
+                        font-family: 'Courier New', monospace;
+                        font-size: 11px;
+                        line-height: 1;
+                    }
+                }
+                body {
+                    font-family: 'Courier New', monospace;
+                    font-size: 11px;
+                    line-height: 1.2;
+                    width: 80mm;
+                    margin: 0 auto;
+                    padding: 5mm;
+                }
+                .receipt {
+                    white-space: pre-wrap;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="receipt">${receiptContent.replace(/\n/g, '<br>')}</div>
+            <script>
+                window.onload = function() {
+                    setTimeout(() => {
+                        window.print();
+                        setTimeout(() => window.close(), 500);
+                    }, 100);
+                }
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
     async printReceipt() {
