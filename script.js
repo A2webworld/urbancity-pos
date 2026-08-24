@@ -1339,13 +1339,37 @@ async autoSyncLocalOrders() {
     // Get already synced order IDs from localStorage
     let syncedOrderIds = JSON.parse(localStorage.getItem('syncedOrderIds') || '[]');
     
+    // ============================================
+    // FIX: Check which orders are ACTUALLY in Supabase
+    // ============================================
+    let actualSyncedIds = [];
+    for (const order of localOrders) {
+        try {
+            const { data: existing } = await window.supabaseClient
+                .from('orders')
+                .select('order_number')
+                .eq('order_number', order.order_number)
+                .maybeSingle();
+            
+            if (existing) {
+                actualSyncedIds.push(order.order_number);
+            }
+        } catch (error) {
+            console.error('Error checking order:', order.order_number, error);
+        }
+    }
+    
+    // Update synced IDs with actual ones
+    syncedOrderIds = actualSyncedIds;
+    localStorage.setItem('syncedOrderIds', JSON.stringify(syncedOrderIds));
+    
     // Find orders that haven't been synced yet
     const unsyncedOrders = localOrders.filter(order => 
         !syncedOrderIds.includes(order.order_number)
     );
     
     if (unsyncedOrders.length === 0) {
-        console.log('All local orders already synced');
+        console.log('All local orders already synced to cloud');
         return;
     }
     
@@ -1357,45 +1381,41 @@ async autoSyncLocalOrders() {
     
     for (const order of unsyncedOrders) {
         try {
-            // Check if order already exists in Supabase
-            const { data: existing } = await window.supabaseClient
-                .from('orders')
-                .select('order_number')
-                .eq('order_number', order.order_number)
-                .maybeSingle();
+            // Prepare order data for Supabase
+            const orderData = {
+                order_number: order.order_number,
+                staff_id: order.staff_id || 'unknown',
+                staff_name: order.staff_name || 'Unknown Staff',
+                items: order.items || [],
+                subtotal: order.subtotal || 0,
+                tax: order.tax || 0,
+                total: order.total || 0,
+                order_type: order.order_type || order.type || 'takeaway',
+                order_status: order.order_status || 'completed',
+                payment_method: order.payment_method || 'cash',
+                payment_status: order.payment_status || 'paid',
+                created_at: order.created_at || order.timestamp || new Date().toISOString(),
+                customer_phone: order.customer_phone || `POS-${order.order_number}`,
+                customer_name: order.customer_name || 'Walk-in Customer',
+                special_instructions: order.special_instructions || '',
+                delivery_address: order.delivery_address || null,
+                pickup_location: order.pickup_location || null,
+                takeaway_fee: order.takeaway_fee || 0
+            };
             
-            if (!existing) {
-                // Prepare order data for Supabase
-                const orderData = {
-                    order_number: order.order_number,
-                    staff_id: order.staff_id,
-                    staff_name: order.staff_name,
-                    items: order.items,
-                    subtotal: order.subtotal,
-                    tax: order.tax || 0,
-                    total: order.total,
-                    order_type: order.order_type || order.type || 'takeaway',
-                    status: 'completed',
-                    created_at: order.created_at || order.timestamp || new Date().toISOString(),
-                    customer_phone: order.customer_phone || `order-${order.order_number}`,
-                    customer_name: order.customer_name || `Customer-${order.order_number}`
-                };
-                
-                const { error } = await window.supabaseClient
-                    .from('orders')
-                    .insert([orderData]);
-                
-                if (error) {
-                    console.error(`Failed to sync order ${order.order_number}:`, error);
-                    failedCount++;
-                } else {
-                    console.log(`✅ Synced order: ${order.order_number}`);
-                    syncedCount++;
-                    syncedOrderIds.push(order.order_number);
-                }
+            const { error } = await window.supabaseClient
+                .from('orders')
+                .insert([orderData]);
+            
+            if (error) {
+                console.error(`Failed to sync order ${order.order_number}:`, error);
+                failedCount++;
             } else {
-                // Order already exists in Supabase
+                console.log(`✅ Synced order: ${order.order_number}`);
+                syncedCount++;
                 syncedOrderIds.push(order.order_number);
+                // Save immediately after each successful sync
+                localStorage.setItem('syncedOrderIds', JSON.stringify(syncedOrderIds));
             }
         } catch (error) {
             console.error(`Error syncing order ${order.order_number}:`, error);
@@ -1410,8 +1430,9 @@ async autoSyncLocalOrders() {
         showNotification(`✅ Synced ${syncedCount} orders to cloud!`, 'success');
         // Refresh the recent orders display
         this.loadRecentOrders();
+        this.updateActiveOrdersCount();
     } else if (failedCount > 0) {
-        showNotification(`⚠️ Synced ${syncedCount}, failed ${failedCount} orders`, 'warning');
+        showNotification(`⚠️ Failed to sync ${failedCount} orders. Check console for errors.`, 'warning');
     }
 }
 
@@ -2664,12 +2685,16 @@ renderCategories() {
             payment_method: paymentMethod,
             payment_status: 'paid',
             order_status: 'completed',
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            special_instructions: ''
         };
 
+        // ============================================
+        // FIX: Always save to Supabase first
+        // ============================================
         let cloudSaved = false;
+        let supabaseError = null;
         
-        // Save to Supabase
         if (window.supabaseClient && window.supabaseConnected) {
             try {
                 const { error } = await window.supabaseClient
@@ -2678,19 +2703,24 @@ renderCategories() {
                 
                 if (error) {
                     console.error('Supabase insert error:', error);
+                    supabaseError = error;
                     throw error;
                 }
                 
                 cloudSaved = true;
-                console.log('✅ POS Order saved to Supabase cloud');
+                console.log('✅ POS Order saved to Supabase cloud:', orderNumber);
                 
             } catch (cloudError) {
                 console.error('Supabase save failed:', cloudError);
                 showNotification('⚠️ Cloud save failed, saving locally only', 'warning');
             }
+        } else {
+            console.warn('⚠️ Supabase not connected, saving locally only');
         }
         
+        // ============================================
         // Always save to local storage as backup
+        // ============================================
         const orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
         orders.push(orderData);
         localStorage.setItem('restaurantOrders', JSON.stringify(orders));
@@ -2702,10 +2732,20 @@ renderCategories() {
         // Update staff sales locally
         staffManager.recordStaffSale(this.currentStaff.id, total);
         
+        // ============================================
+        // FIX: If cloud save failed, mark as unsynced
+        // ============================================
+        if (!cloudSaved) {
+            // Remove from synced IDs so it will be retried
+            let syncedIds = JSON.parse(localStorage.getItem('syncedOrderIds') || '[]');
+            syncedIds = syncedIds.filter(id => id !== orderNumber);
+            localStorage.setItem('syncedOrderIds', JSON.stringify(syncedIds));
+        }
+        
         this.isOrderSaved = true;
         this.updateButtonStates();
         this.updateActiveOrdersCount();
-        this.loadRecentOrders(); // This will now show POS orders
+        this.loadRecentOrders();
         
         // CLEAR THE CURRENT ORDER AFTER SAVING
         this.currentOrder = [];
@@ -2715,7 +2755,7 @@ renderCategories() {
         if (cloudSaved) {
             showNotification('✅ Order saved to cloud!', 'success');
         } else {
-            showNotification('✅ Order saved locally', 'success');
+            showNotification('⚠️ Order saved locally only (cloud unavailable)', 'warning');
         }
 
     } catch (error) {
