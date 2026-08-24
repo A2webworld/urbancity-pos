@@ -2584,12 +2584,14 @@ renderCategories() {
         saveOrderBtn.disabled = !hasItems || this.isOrderSaved;
     }
     
-    // DISABLE CHECKOUT BUTTON - No hard copy printing for now
+    // ============================================
+    // FIX: Enable Checkout button
+    // ============================================
     if (checkoutBtn) {
-        checkoutBtn.disabled = true;  // Always disabled
-        checkoutBtn.style.opacity = '0.5';
-        checkoutBtn.style.cursor = 'not-allowed';
-        checkoutBtn.title = 'Checkout disabled - Use Save Order only';
+        checkoutBtn.disabled = !hasItems || !this.isOrderSaved;
+        checkoutBtn.style.opacity = (hasItems && this.isOrderSaved) ? '1' : '0.5';
+        checkoutBtn.style.cursor = (hasItems && this.isOrderSaved) ? 'pointer' : 'not-allowed';
+        checkoutBtn.title = (hasItems && this.isOrderSaved) ? 'Print Receipt' : 'Save order first';
     }
     
     if (clearOrderBtn) {
@@ -3024,7 +3026,9 @@ receipt += '══════════════════════�
     
     console.log('📋 Loading orders for today:', today.toDateString());
     
-    // Fetch orders from Supabase - TODAY ONLY
+    // ============================================
+    // FIX: Fetch from Supabase FIRST (cloud)
+    // ============================================
     if (window.supabaseClient && window.supabaseConnected) {
         try {
             const { data, error } = await window.supabaseClient
@@ -3033,11 +3037,11 @@ receipt += '══════════════════════�
                 .gte('created_at', today.toISOString())
                 .lt('created_at', tomorrow.toISOString())
                 .order('created_at', { ascending: false })
-                .limit(50); // Increased limit to show more orders
+                .limit(50);
             
             if (!error && data) {
                 orders = data;
-                console.log(`✅ Loaded ${orders.length} orders from Supabase (Today only)`);
+                console.log(`✅ Loaded ${orders.length} orders from Supabase (Cloud)`);
             } else {
                 console.error('Supabase orders error:', error);
             }
@@ -3046,18 +3050,75 @@ receipt += '══════════════════════�
         }
     }
     
-    // Fallback to localStorage - TODAY ONLY
-    if (orders.length === 0) {
-        const localOrders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
-        const todayStr = today.toDateString();
+    // ============================================
+    // FIX: Sync local orders to Supabase if any
+    // ============================================
+    const localOrders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+    if (localOrders.length > 0 && orders.length === 0) {
+        // Try to sync local orders to cloud
+        console.log('📤 Syncing local orders to cloud...');
+        for (const localOrder of localOrders) {
+            try {
+                // Check if order already exists in Supabase
+                const { data: existing } = await window.supabaseClient
+                    .from('orders')
+                    .select('order_number')
+                    .eq('order_number', localOrder.order_number)
+                    .maybeSingle();
+                
+                if (!existing) {
+                    await window.supabaseClient
+                        .from('orders')
+                        .insert([{
+                            order_number: localOrder.order_number,
+                            staff_id: localOrder.staff_id,
+                            staff_name: localOrder.staff_name,
+                            items: localOrder.items,
+                            subtotal: localOrder.subtotal,
+                            total: localOrder.total,
+                            order_type: localOrder.order_type || 'takeaway',
+                            order_status: 'completed',
+                            created_at: localOrder.created_at || new Date().toISOString(),
+                            customer_name: localOrder.customer_name || 'Walk-in Customer',
+                            customer_phone: localOrder.customer_phone || `POS-${localOrder.order_number}`
+                        }]);
+                    console.log(`✅ Synced local order: ${localOrder.order_number}`);
+                }
+            } catch (err) {
+                console.error('Failed to sync order:', err);
+            }
+        }
         
+        // Reload orders after sync
+        if (window.supabaseClient && window.supabaseConnected) {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('orders')
+                    .select('*')
+                    .gte('created_at', today.toISOString())
+                    .lt('created_at', tomorrow.toISOString())
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+                
+                if (!error && data) {
+                    orders = data;
+                    console.log(`✅ Loaded ${orders.length} orders from Supabase after sync`);
+                }
+            } catch (error) {
+                console.error('Failed to reload orders:', error);
+            }
+        }
+    }
+    
+    // If still no orders, try localStorage as fallback
+    if (orders.length === 0) {
+        const todayStr = today.toDateString();
         orders = localOrders.filter(order => {
             const orderDate = new Date(order.created_at || order.timestamp);
             return orderDate.toDateString() === todayStr;
         });
-        
         orders = orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 50);
-        console.log(`✅ Loaded ${orders.length} orders from localStorage (Today only)`);
+        console.log(`📋 Loaded ${orders.length} orders from localStorage (fallback)`);
     }
     
     // If still no orders, show empty state
@@ -3071,9 +3132,28 @@ receipt += '══════════════════════�
         return;
     }
     
-    // Build orders HTML
+    // Build orders HTML (filter out POS orders from website orders)
+    const websiteOrders = orders.filter(order => {
+        const isPosOrder = order.order_number && order.order_number.startsWith('POS-');
+        return !isPosOrder;
+    });
+    
+    // Display website orders only in Recent Orders
+    const displayOrders = websiteOrders.length > 0 ? websiteOrders : orders;
+    
+    if (displayOrders.length === 0) {
+        activeOrdersList.innerHTML = `
+            <div class="empty-state" style="text-align:center;padding:20px;color:#888;">
+                <i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:10px;"></i>
+                No website orders today
+            </div>
+        `;
+        return;
+    }
+    
     let ordersHTML = '';
-    orders.forEach(order => {
+    displayOrders.forEach(order => {
+        // ... rest of the function (same as before)
         const orderNumber = order.order_number || order.id;
         const customerName = order.customer_name || 'Walk-in Customer';
         const total = order.total || 0;
@@ -3082,7 +3162,6 @@ receipt += '══════════════════════�
         const specialInstructions = order.special_instructions || '';
         const hasInstructions = specialInstructions && specialInstructions.length > 0;
         
-        // Format time
         let timeDisplay = 'Just now';
         if (order.created_at) {
             const orderDate = new Date(order.created_at);
@@ -3097,7 +3176,6 @@ receipt += '══════════════════════�
             }
         }
         
-        // Status badge
         let statusBadge = '';
         let statusColor = '';
         switch(orderStatus) {
@@ -4837,25 +4915,33 @@ async function generateFilteredReport() {
         return;
     }
     
-    showNotification('🔄 Fetching orders...', 'info');
+    showNotification('🔄 Fetching orders from cloud...', 'info');
     
     let orders = [];
     let fromCloud = false;
     
-    // Try to fetch from Supabase cloud
+    // ============================================
+    // FIX: Fetch from Supabase cloud FIRST
+    // ============================================
     if (window.supabaseClient && window.supabaseConnected) {
         try {
-            // Ensure dates are properly formatted
             const startDate = new Date(startDateInput);
             const endDate = new Date(endDateInput);
             endDate.setHours(23, 59, 59, 999);
             
-            const { data, error } = await window.supabaseClient
+            let query = window.supabaseClient
                 .from('orders')
                 .select('*')
                 .gte('created_at', startDate.toISOString())
                 .lte('created_at', endDate.toISOString())
                 .order('created_at', { ascending: false });
+            
+            // Apply staff filter if not "all"
+            if (staffFilter !== 'all') {
+                query = query.eq('staff_id', staffFilter);
+            }
+            
+            const { data, error } = await query;
             
             if (!error && data && data.length > 0) {
                 orders = data;
@@ -4870,11 +4956,9 @@ async function generateFilteredReport() {
         }
     }
     
-    // If cloud fetch failed, use localStorage
+    // If cloud fetch failed or no data, use localStorage
     if (orders.length === 0) {
         const localOrders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
-        
-        // Filter by date range
         const startDate = new Date(startDateInput);
         const endDate = new Date(endDateInput);
         endDate.setHours(23, 59, 59, 999);
