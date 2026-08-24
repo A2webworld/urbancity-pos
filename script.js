@@ -1383,25 +1383,27 @@ async autoSyncLocalOrders() {
         try {
             // Prepare order data for Supabase
             const orderData = {
-                order_number: order.order_number,
-                staff_id: order.staff_id || 'unknown',
-                staff_name: order.staff_name || 'Unknown Staff',
-                items: order.items || [],
-                subtotal: order.subtotal || 0,
-                tax: order.tax || 0,
-                total: order.total || 0,
-                order_type: order.order_type || order.type || 'takeaway',
-                order_status: order.order_status || 'completed',
-                payment_method: order.payment_method || 'cash',
-                payment_status: order.payment_status || 'paid',
-                created_at: order.created_at || order.timestamp || new Date().toISOString(),
-                customer_phone: order.customer_phone || `POS-${order.order_number}`,
-                customer_name: order.customer_name || 'Walk-in Customer',
-                special_instructions: order.special_instructions || '',
-                delivery_address: order.delivery_address || null,
-                pickup_location: order.pickup_location || null,
-                takeaway_fee: order.takeaway_fee || 0
-            };
+    order_number: order.order_number,
+    staff_id: order.staff_id || 'unknown',
+    staff_name: order.staff_name || 'Unknown Staff',
+    customer_name: order.customer_name || 'Walk-in Customer',
+    customer_phone: order.customer_phone || `POS-${order.order_number}`,
+    customer_email: order.customer_email || null,
+    delivery_address: order.delivery_address || null,
+    pickup_location: order.pickup_location || null,
+    items: order.items || [],
+    subtotal: order.subtotal || 0,
+    tax: order.tax || 0,
+    total: order.total || 0,
+    takeaway_fee: order.takeaway_fee || 0,
+    order_type: order.order_type || order.type || 'takeaway',
+    status: 'completed',  // ✅ FIXED: Use 'status' not 'order_status'
+    payment_method: order.payment_method || 'cash',
+    payment_status: order.payment_status || 'paid',
+    special_instructions: order.special_instructions || '',
+    created_at: order.created_at || order.timestamp || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+};
             
             const { error } = await window.supabaseClient
                 .from('orders')
@@ -2665,29 +2667,34 @@ renderCategories() {
         const paymentMethod = typeof posPaymentMethod !== 'undefined' ? posPaymentMethod : 'cash';
         
         const orderData = {
-            id: orderNumber,
-            order_number: orderNumber,
-            staff_id: this.currentStaff.id,
-            staff_name: this.currentStaff.display_name,
-            customer_name: 'Walk-in Customer',
-            customer_phone: `POS-${orderNumber}`,
-            items: this.currentOrder.map(item => ({
-                id: item.id,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                variant: item.variant || null
-            })),
-            subtotal: subtotal,
-            takeaway_fee: 0,
-            total: total,
-            order_type: this.orderType,
-            payment_method: paymentMethod,
-            payment_status: 'paid',
-            order_status: 'completed',
-            created_at: new Date().toISOString(),
-            special_instructions: ''
-        };
+    id: orderNumber,
+    order_number: orderNumber,
+    staff_id: this.currentStaff.id,
+    staff_name: this.currentStaff.display_name,
+    customer_name: 'Walk-in Customer',
+    customer_phone: `POS-${orderNumber}`,
+    customer_email: null,
+    delivery_address: null,
+    pickup_location: null,
+    items: this.currentOrder.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variant || null
+    })),
+    subtotal: subtotal,
+    takeaway_fee: 0,
+    total: total,
+    order_type: this.orderType,
+    payment_method: paymentMethod,
+    payment_status: 'paid',
+    status: 'completed',  // ✅ FIXED: Use 'status' not 'order_status'
+    special_instructions: '',
+    created_at: new Date().toISOString(),
+    tax: 0,
+    updated_at: new Date().toISOString()
+};
 
         // ============================================
         // FIX: Always save to Supabase first
@@ -2843,47 +2850,105 @@ async updateStaffSalesInSupabase() {
 }
 
     async checkout() {
-        try {
-            this.validateOrderBeforeCheckout();
-
-            const subtotal = this.currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const tax = 0;
-            const total = subtotal;
-
-            const orderRecord = {
-                id: document.getElementById('orderNumber').textContent,
-                staff: {
-                    id: this.currentStaff.id,
-                    name: this.currentStaff.name,
-                    display_name: this.currentStaff.display_name
-                },
-                items: [...this.currentOrder],
-                total: total,
-                type: this.orderType,
-                timestamp: new Date().toISOString()
-            };
-            
-            const customer = customerCRM.autoSaveCustomerFromOrder(orderRecord, total);
-
-            staffManager.recordStaffSale(this.currentStaff.id, total);
-
-            // Print receipt
-            await this.printReceipt();
-
-            this.currentOrder = [];
-            this.isOrderSaved = false;
-            this.updateOrderDisplay();
-            this.updateButtonStates();
-            this.renderMenuItems();
-            this.updateActiveOrdersCount();
-            this.loadRecentOrders();
-            
-            showNotification('Order completed successfully! ✓', 'success');
-
-        } catch (error) {
-            showNotification('Checkout failed: ' + error.message, 'error');
+    try {
+        // ============================================
+        // FIX: Get the last saved order from localStorage
+        // ============================================
+        const orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+        const lastOrder = orders[orders.length - 1];
+        
+        if (!lastOrder) {
+            showNotification('No orders to print. Please save an order first.', 'error');
+            return;
         }
+        
+        // Use the last saved order for printing
+        const orderItems = lastOrder.items || [];
+        const orderTotal = lastOrder.total || 0;
+        const orderNumber = lastOrder.order_number || document.getElementById('orderNumber').textContent;
+        
+        if (orderItems.length === 0) {
+            showNotification('No items in the last saved order.', 'error');
+            return;
+        }
+        
+        console.log('🖨️ Printing last saved order:', orderNumber);
+        console.log('📋 Items:', orderItems);
+
+        // ============================================
+        // Generate receipt from last order
+        // ============================================
+        const receiptContent = this.generateReceiptContentFromOrder(orderItems, orderNumber, orderTotal);
+        
+        // Print receipt
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Print Receipt</title>
+                <style>
+                    @media print {
+                        @page { 
+                            size: 80mm auto;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        body { 
+                            width: 80mm;
+                            margin: 0;
+                            padding: 5mm;
+                            font-family: 'Courier New', monospace;
+                            font-size: 11px;
+                            line-height: 1;
+                        }
+                    }
+                    body {
+                        font-family: 'Courier New', monospace;
+                        font-size: 11px;
+                        line-height: 1.2;
+                        width: 80mm;
+                        margin: 0 auto;
+                        padding: 5mm;
+                    }
+                    .receipt {
+                        white-space: pre-wrap;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="receipt">${receiptContent.replace(/\n/g, '<br>')}</div>
+                <script>
+                    window.onload = function() {
+                        setTimeout(() => {
+                            window.print();
+                            setTimeout(() => window.close(), 500);
+                        }, 100);
+                    }
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        
+        // Update staff sales
+        staffManager.recordStaffSale(this.currentStaff.id, orderTotal);
+        
+        // Clear current order after printing
+        this.currentOrder = [];
+        this.isOrderSaved = false;
+        this.updateOrderDisplay();
+        this.updateButtonStates();
+        this.renderMenuItems();
+        this.updateActiveOrdersCount();
+        this.loadRecentOrders();
+        
+        showNotification('✅ Order printed successfully!', 'success');
+
+    } catch (error) {
+        console.error('Checkout/Print error:', error);
+        showNotification('Checkout failed: ' + error.message, 'error');
     }
+}
 
     async printReceipt() {
         // Generate receipt content
@@ -2979,6 +3044,52 @@ async updateStaffSalesInSupabase() {
     receipt += `Takeaway Fee:       ₦550\n`;
 }
 receipt += '══════════════════════════════\n';
+        receipt += 'Thank you for your order!\n';
+        receipt += `Served by: ${staffDisplayName}\n`;
+        receipt += `${orderType === 'takeaway' ? '🏃 Grab & Go' : '🚚 Delivery Available'}\n`;
+        receipt += '📞 08105442629\n';
+        receipt += '══════════════════════════════\n\n\n\n';
+        
+        return receipt;
+    }
+
+        generateReceiptContentFromOrder(orderItems, orderNumber, total) {
+        const currentTime = new Date().toLocaleString();
+        const staffDisplayName = this.currentStaff ? this.currentStaff.display_name : 'Unknown';
+        const orderType = this.orderType || 'takeaway';
+        
+        let subtotal = 0;
+        let receipt = '';
+        receipt += '══════════════════════════════\n';
+        receipt += '      URBANCITY RESTAURANT\n';
+        receipt += '══════════════════════════════\n';
+        receipt += `Order #: ${orderNumber}\n`;
+        receipt += `Date   : ${currentTime}\n`;
+        receipt += `Cashier: ${staffDisplayName}\n`;
+        receipt += `Type   : ${orderType.toUpperCase()}\n`;
+        receipt += '══════════════════════════════\n';
+        receipt += 'QTY ITEM                AMOUNT\n';
+        receipt += '══════════════════════════════\n';
+        
+        if (orderItems && orderItems.length > 0) {
+            orderItems.forEach(item => {
+                const itemTotal = (item.price || 0) * (item.quantity || 1);
+                subtotal += itemTotal;
+                const itemName = (item.name || 'Item').length > 20 ? (item.name || 'Item').substring(0, 20) : (item.name || 'Item');
+                receipt += `${(item.quantity || 1).toString().padStart(3)} ${itemName.padEnd(20)} ₦${itemTotal.toLocaleString().padStart(8)}\n`;
+            });
+        }
+        
+        receipt += '══════════════════════════════\n';
+        receipt += `SUBTOTAL              ₦${subtotal.toLocaleString().padStart(8)}\n`;
+        receipt += `TAX                   ₦0\n`;
+        receipt += '══════════════════════════════\n';
+        receipt += `TOTAL                 ₦${(total || subtotal).toLocaleString().padStart(8)}\n`;
+        receipt += '══════════════════════════════\n';
+        if (orderType === 'takeaway') {
+            receipt += `Takeaway Fee:       ₦550\n`;
+        }
+        receipt += '══════════════════════════════\n';
         receipt += 'Thank you for your order!\n';
         receipt += `Served by: ${staffDisplayName}\n`;
         receipt += `${orderType === 'takeaway' ? '🏃 Grab & Go' : '🚚 Delivery Available'}\n`;
@@ -3117,7 +3228,7 @@ receipt += '══════════════════════�
                             subtotal: localOrder.subtotal,
                             total: localOrder.total,
                             order_type: localOrder.order_type || 'takeaway',
-                            order_status: 'completed',
+                            status: 'completed',
                             created_at: localOrder.created_at || new Date().toISOString(),
                             customer_name: localOrder.customer_name || 'Walk-in Customer',
                             customer_phone: localOrder.customer_phone || `POS-${localOrder.order_number}`
@@ -3198,7 +3309,7 @@ receipt += '══════════════════════�
         const customerName = order.customer_name || 'Walk-in Customer';
         const total = order.total || 0;
         const orderType = order.order_type || 'takeaway';
-        const orderStatus = order.order_status || 'pending';
+        const orderStatus = order.status || 'pending';
         const specialInstructions = order.special_instructions || '';
         const hasInstructions = specialInstructions && specialInstructions.length > 0;
         
@@ -3283,9 +3394,9 @@ async updateOrderStatus(orderId, newStatus) {
     const { error } = await window.supabaseClient
         .from('orders')
         .update({ 
-            order_status: newStatus,
-            updated_at: new Date().toISOString()
-        })
+    status: newStatus,  // ✅ FIXED
+    updated_at: new Date().toISOString()
+})
         .eq('id', orderId);
     
     if (error) {
