@@ -2118,15 +2118,15 @@ const menuItem = document.createElement('div');
 menuItem.className = `menu-item ${stockStatus}`;
 menuItem.style.cssText = `
     position: relative;
-    padding: 15px;
+    padding: 15px 15px 35px 15px;
     border-radius: 8px;
     background: #ffffff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     transition: all 0.2s ease;
     margin-bottom: 15px;
     border: 1px solid #e9ecef;
-    min-height: 150px;
-    overflow: hidden;
+    min-height: 180px;
+    overflow: visible;
     display: flex;
     flex-direction: column;
 `;
@@ -2157,15 +2157,15 @@ if (stockStatus === 'out-of-stock') {
 }
 
 // ============================================
-// FIXED: Build price display with proper wrapping
+// FIXED: Build price display with proper wrapping and visibility
 // ============================================
 let priceHTML = '';
 if (hasVariants) {
     priceHTML = `
-        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; overflow: hidden;">
+        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%;">
             ${item.variants.map((variant, idx) => `
                 <button class="variant-btn" data-item-id="${item.id}" data-variant-index="${idx}" 
-                        style="padding: 4px 10px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 16px; cursor: pointer; font-size: 10px; font-weight: 500; transition: all 0.2s; white-space: nowrap; max-width: 100%; flex: 0 0 auto;">
+                        style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 16px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s; white-space: nowrap; flex: 0 1 auto; max-width: 100%; margin: 2px 0;">
                     ${variant.display || `${variant.size} - ₦${variant.price.toLocaleString()}`}
                 </button>
             `).join('')}
@@ -2880,25 +2880,37 @@ async updateStaffSalesInSupabase() {
         
         let printed = false;
         
+        // ============================================
+        // QZ TRAY PRINTING - UPDATED
+        // ============================================
         // Check if QZ Tray is available
         if (typeof qz !== 'undefined') {
             try {
-                console.log('🔌 Connecting to QZ Tray...');
-                await qz.websocket.connect();
+                console.log('🔌 Attempting QZ Tray connection...');
+                
+                // Connect to QZ Tray
+                await qz.websocket.connect({
+                    host: 'localhost',
+                    port: 8181,
+                    secure: false
+                });
                 console.log('✅ QZ Tray connected');
                 
+                // Get available printers
                 const printers = await qz.printers.find();
                 console.log('📋 Available printers:', printers);
                 
                 if (printers.length === 0) {
-                    throw new Error('No printers found');
+                    throw new Error('No printers found. Please check your printer connection.');
                 }
                 
-                const defaultPrinter = printers[0].name;
-                console.log('🖨️ Using printer:', defaultPrinter);
+                // Use the first printer found
+                const printerName = printers[0].name;
+                console.log('🖨️ Using printer:', printerName);
                 
-                const config = qz.configs.create(defaultPrinter);
+                const config = qz.configs.create(printerName);
                 
+                // Create print data - format for thermal receipt
                 const printData = [
                     {
                         type: 'text',
@@ -2915,22 +2927,28 @@ async updateStaffSalesInSupabase() {
                     }
                 ];
                 
+                // Send to printer
                 await qz.print(config, printData);
                 console.log('✅ Receipt sent to printer!');
                 printed = true;
                 
+                // Disconnect
                 await qz.websocket.disconnect();
                 showNotification('🖨️ Receipt sent to printer!', 'success');
                 
             } catch (qzError) {
                 console.error('❌ QZ Tray error:', qzError);
                 try { await qz.websocket.disconnect(); } catch(e) {}
+                // Fallback to browser print
                 this.printWithBrowser(receiptContent);
                 printed = true;
                 showNotification('⚠️ QZ Tray failed, using browser print', 'warning');
             }
         }
         
+        // ============================================
+        // FALLBACK: Browser Print
+        // ============================================
         if (!printed) {
             console.log('⚠️ QZ Tray not available, using browser print');
             this.printWithBrowser(receiptContent);
