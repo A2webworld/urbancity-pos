@@ -545,6 +545,51 @@ body {
     color: white;
 }
 
+/* ============================================ */
+/* FIX: Variant buttons overflow */
+/* ============================================ */
+.menu-item .variant-btn {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+    border-radius: 16px !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+    background: #f0f0f0 !important;
+    border: 1px solid #ddd !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+}
+
+.menu-item .variant-btn:hover {
+    background: #ff9800 !important;
+    color: white !important;
+    border-color: #ff9800 !important;
+}
+
+.menu-item .variant-btn.selected {
+    background: #ff9800 !important;
+    color: white !important;
+    border-color: #ff9800 !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .menu-item .variant-btn {
+        padding: 3px 8px !important;
+        font-size: 9px !important;
+        border-radius: 12px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .menu-item .variant-btn {
+        padding: 2px 6px !important;
+        font-size: 8px !important;
+        border-radius: 10px !important;
+    }
+}
+
 /* Category Tabs - Fixed width and proper scrolling */
 /* Make categories stay on top */
 .categories-scroll {

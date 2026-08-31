@@ -2108,40 +2108,45 @@ async saveCustomerToSupabase(orderData, totalAmount) {
 
     filteredItems.forEach(item => {
         // Check if item has variants
-        const hasVariants = item.variants && item.variants.length > 0;
-        
-        const stockStatus = this.getStockStatus(item);
-        const isAvailable = stockStatus !== 'out-of-stock';
-        const stockCount = item.stock || 0;
-        
-        const menuItem = document.createElement('div');
-        menuItem.className = `menu-item ${stockStatus}`;
-        menuItem.style.position = 'relative';
-        menuItem.style.padding = '15px';
-        menuItem.style.borderRadius = '8px';
-        menuItem.style.background = '#ffffff';
-        menuItem.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        menuItem.style.transition = 'all 0.2s ease';
-        menuItem.style.marginBottom = '15px';
-        menuItem.style.border = '1px solid #e9ecef';
-        menuItem.style.minHeight = '150px';
-        
-        let statusText = '';
-        let statusIcon = '';
-        
-        if (stockStatus === 'out-of-stock') {
-            statusText = 'Sold Out';
-            statusIcon = '❌';
-            menuItem.style.opacity = '0.6';
-        } else if (stockStatus === 'low-stock') {
-            statusText = 'Low Stock';
-            statusIcon = '⚠️';
-        } else {
-            statusText = 'In Stock';
-            statusIcon = '✅';
-        }
-        
-        // Build the status text with stock count
+const hasVariants = item.variants && item.variants.length > 0;
+
+const stockStatus = this.getStockStatus(item);
+const isAvailable = stockStatus !== 'out-of-stock';
+const stockCount = item.stock || 0;
+
+const menuItem = document.createElement('div');
+menuItem.className = `menu-item ${stockStatus}`;
+menuItem.style.cssText = `
+    position: relative;
+    padding: 15px;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+    margin-bottom: 15px;
+    border: 1px solid #e9ecef;
+    min-height: 150px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+`;
+
+let statusText = '';
+let statusIcon = '';
+
+if (stockStatus === 'out-of-stock') {
+    statusText = 'Sold Out';
+    statusIcon = '❌';
+    menuItem.style.opacity = '0.6';
+} else if (stockStatus === 'low-stock') {
+    statusText = 'Low Stock';
+    statusIcon = '⚠️';
+} else {
+    statusText = 'In Stock';
+    statusIcon = '✅';
+}
+
+// Build status display text
 let statusDisplayText = '';
 if (stockStatus === 'out-of-stock') {
     statusDisplayText = '❌ Sold Out';
@@ -2151,19 +2156,21 @@ if (stockStatus === 'out-of-stock') {
     statusDisplayText = `✅ In Stock (${stockCount})`;
 }
 
-// Build price display HTML
+// ============================================
+// FIXED: Build price display with proper wrapping
+// ============================================
 let priceHTML = '';
 if (hasVariants) {
-    priceHTML = '<div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">';
-    item.variants.forEach((variant, idx) => {
-        priceHTML += `
-            <button class="variant-btn" data-item-id="${item.id}" data-variant-index="${idx}" 
-                    style="padding: 6px 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.2s;">
-                ${variant.display || `${variant.size} - ₦${variant.price.toLocaleString()}`}
-            </button>
-        `;
-    });
-    priceHTML += '</div>';
+    priceHTML = `
+        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; overflow: hidden;">
+            ${item.variants.map((variant, idx) => `
+                <button class="variant-btn" data-item-id="${item.id}" data-variant-index="${idx}" 
+                        style="padding: 4px 10px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 16px; cursor: pointer; font-size: 10px; font-weight: 500; transition: all 0.2s; white-space: nowrap; max-width: 100%; flex: 0 0 auto;">
+                    ${variant.display || `${variant.size} - ₦${variant.price.toLocaleString()}`}
+                </button>
+            `).join('')}
+        </div>
+    `;
 } else {
     priceHTML = `<div style="color: #007bff; font-weight: bold; font-size: 16px; margin-top: 8px;">
                     ₦${item.price.toLocaleString()}
@@ -2171,7 +2178,7 @@ if (hasVariants) {
 }
 
 menuItem.innerHTML = `
-    <div style="font-weight: 600; margin-bottom: 5px; color: #212529; line-height: 1.4; font-size: 14px; padding-right: 40px;">
+    <div style="font-weight: 600; margin-bottom: 5px; color: #212529; line-height: 1.4; font-size: 14px; padding-right: 40px; word-wrap: break-word;">
         ${item.name}
     </div>
     <div style="font-size: 11px; color: #6c757d; margin-bottom: 8px;">
@@ -2869,12 +2876,8 @@ async updateStaffSalesInSupabase() {
         
         console.log('🖨️ Printing last saved order:', orderNumber);
         
-        // Generate receipt content
         const receiptContent = this.generateReceiptContentFromOrder(orderItems, orderNumber, orderTotal);
         
-        // ============================================
-        // QZ TRAY PRINTING
-        // ============================================
         let printed = false;
         
         // Check if QZ Tray is available
@@ -2884,15 +2887,18 @@ async updateStaffSalesInSupabase() {
                 await qz.websocket.connect();
                 console.log('✅ QZ Tray connected');
                 
-                // Get default printer
                 const printers = await qz.printers.find();
-                const defaultPrinter = printers.length > 0 ? printers[0].name : 'POS-80';
+                console.log('📋 Available printers:', printers);
+                
+                if (printers.length === 0) {
+                    throw new Error('No printers found');
+                }
+                
+                const defaultPrinter = printers[0].name;
                 console.log('🖨️ Using printer:', defaultPrinter);
                 
-                // Create print data - format for thermal receipt printer
                 const config = qz.configs.create(defaultPrinter);
                 
-                // Format receipt for thermal printer
                 const printData = [
                     {
                         type: 'text',
@@ -2900,33 +2906,31 @@ async updateStaffSalesInSupabase() {
                         options: {
                             encoding: 'utf-8',
                             language: 'en',
-                            font: 'monospace',
+                            font: 'Courier New',
                             size: 12,
-                            align: 'center'
+                            align: 'left',
+                            lineSpacing: 2,
+                            margins: { left: 10, right: 10, top: 10, bottom: 10 }
                         }
                     }
                 ];
                 
-                // Send to printer
                 await qz.print(config, printData);
                 console.log('✅ Receipt sent to printer!');
                 printed = true;
                 
-                // Disconnect
                 await qz.websocket.disconnect();
-                
                 showNotification('🖨️ Receipt sent to printer!', 'success');
                 
             } catch (qzError) {
                 console.error('❌ QZ Tray error:', qzError);
-                // Fallback to browser print
+                try { await qz.websocket.disconnect(); } catch(e) {}
                 this.printWithBrowser(receiptContent);
                 printed = true;
                 showNotification('⚠️ QZ Tray failed, using browser print', 'warning');
             }
         }
         
-        // If QZ Tray not available or failed, use browser print
         if (!printed) {
             console.log('⚠️ QZ Tray not available, using browser print');
             this.printWithBrowser(receiptContent);
