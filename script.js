@@ -453,7 +453,7 @@ class StaffManager {
                 role: 'manager',
                 pin_code: '2345',
                 email: 'manager@urbancity.com',
-                phone: '08105442629',
+                phone: '07079110851',
                 is_active: true,
                 can_edit_display_name: true,
                 total_sales: 0,
@@ -468,7 +468,7 @@ class StaffManager {
                 role: 'staff',
                 pin_code: '3456',
                 email: 'staff@urbancity.com',
-                phone: '08105442629',
+                phone: '07079110851',
                 is_active: true,
                 can_edit_display_name: true,
                 total_sales: 0,
@@ -2910,8 +2910,9 @@ async updateStaffSalesInSupabase() {
                 
                 const config = qz.configs.create(printerName);
                 
-                // Create print data - format for thermal receipt
-                const printData = [
+                // Inside checkout function, after generating receiptContent
+
+const printData = [
     {
         type: 'text',
         data: receiptContent,
@@ -2919,15 +2920,17 @@ async updateStaffSalesInSupabase() {
             encoding: 'utf-8',
             language: 'en',
             font: 'Courier New',
-            size: 20,              // ← BIGGER font
+            size: 18,              // Big and bold
             align: 'left',
-            fontWeight: 'bold',     // ← BOLD
-            fontStyle: 'bold',      // ← EXTRA BOLD
+            fontWeight: 'bold',     // BOLD text
+            fontStyle: 'bold',      // EXTRA BOLD
             lineSpacing: 4,
             margins: { left: 10, right: 10, top: 10, bottom: 10 }
         }
     }
 ];
+
+await qz.print(config, printData);
                 
                 // Send to printer
                 await qz.print(config, printData);
@@ -3125,7 +3128,7 @@ receipt += '══════════════════════�
         receipt += 'Thank you for your order!\n';
         receipt += `Served by: ${staffDisplayName}\n`;
         receipt += `${orderType === 'takeaway' ? '🏃 Grab & Go' : '🚚 Delivery Available'}\n`;
-        receipt += '📞 08105442629\n';
+        receipt += '📞 07079110851\n';
         receipt += '══════════════════════════════\n\n\n\n';
         
         return receipt;
@@ -3140,53 +3143,53 @@ receipt += '══════════════════════�
     let receipt = '';
     
     // ============================================
-    // EXTRA BOLD RECEIPT - USING BOX DRAWING CHARACTERS
+    // BOLD LOOK WITH BOX DRAWING CHARACTERS
     // ============================================
+    receipt += '\n\n';
+    receipt += '╔═══════════════════════════════════╗\n';
+    receipt += '║        U R B A N C I T Y         ║\n';
+    receipt += '║           RESTAURANT             ║\n';
+    receipt += '╚═══════════════════════════════════╝\n';
     receipt += '\n';
-    receipt += '╔════════════════════════════════════════════╗\n';
-    receipt += '║                                          ║\n';
-    receipt += '║     🏙️  U R B A N C I T Y                ║\n';
-    receipt += '║          R E S T A U R A N T             ║\n';
-    receipt += '║                                          ║\n';
-    receipt += '╚════════════════════════════════════════════╝\n';
+    receipt += '┌───────────────────────────────────┐\n';
+    receipt += '│ ORDER: ' + orderNumber.padEnd(25) + '│\n';
+    receipt += '│ DATE:  ' + currentTime.padEnd(25) + '│\n';
+    receipt += '│ SERVER:' + staffDisplayName.padEnd(25) + '│\n';
+    receipt += '│ TYPE:  ' + orderType.toUpperCase().padEnd(25) + '│\n';
+    receipt += '└───────────────────────────────────┘\n';
     receipt += '\n';
-    receipt += '  ORDER: ' + orderNumber + '\n';
-    receipt += '  DATE:  ' + currentTime + '\n';
-    receipt += '  SERVER:' + staffDisplayName + '\n';
-    receipt += '  TYPE:  ' + orderType.toUpperCase() + '\n';
-    receipt += '\n';
-    receipt += '════════════════════════════════════════════\n';
-    receipt += '  QTY  ITEM                     AMOUNT\n';
-    receipt += '════════════════════════════════════════════\n';
-    receipt += '\n';
+    receipt += ' QTY  ITEM                   PRICE\n';
+    receipt += '─────────────────────────────────────\n';
     
     if (orderItems && orderItems.length > 0) {
         orderItems.forEach(item => {
             const itemTotal = (item.price || 0) * (item.quantity || 1);
             subtotal += itemTotal;
-            const itemName = (item.name || 'Item').substring(0, 22);
-            receipt += '  ' + (item.quantity || 1).toString().padStart(3) + '   ' + itemName.padEnd(22) + '  ₦' + itemTotal.toLocaleString().padStart(8) + '\n';
+            const itemName = (item.name || 'Item').substring(0, 20);
+            const qtyStr = String(item.quantity || 1).padStart(3);
+            const nameStr = itemName.padEnd(20);
+            const priceStr = '₦' + itemTotal.toLocaleString().padStart(8);
+            receipt += ' ' + qtyStr + '   ' + nameStr + '  ' + priceStr + '\n';
         });
     }
     
     receipt += '\n';
-    receipt += '════════════════════════════════════════════\n';
-    receipt += '  SUBTOTAL                    ₦' + subtotal.toLocaleString().padStart(8) + '\n';
-    receipt += '  TAX                         ₦0\n';
-    receipt += '  TOTAL                       ₦' + (total || subtotal).toLocaleString().padStart(8) + '\n';
-    if (orderType === 'takeaway') {
-        receipt += '  TAKEWAY FEE                 ₦550\n';
-    }
-    receipt += '════════════════════════════════════════════\n';
+    receipt += '─────────────────────────────────────\n';
+    receipt += ' SUBTOTAL                  ₦' + subtotal.toLocaleString().padStart(8) + '\n';
+    receipt += ' TAKEWAY FEE               ₦550\n';
+    receipt += '─────────────────────────────────────\n';
+    receipt += ' TOTAL                     ₦' + (total || subtotal).toLocaleString().padStart(8) + '\n';
+    receipt += '═════════════════════════════════════\n';
     receipt += '\n';
-    receipt += '  ✅ THANK YOU FOR CHOOSING URBANCITY!\n';
-    receipt += '  👤 Served by: ' + staffDisplayName + '\n';
-    receipt += '  ' + (orderType === 'takeaway' ? '🏃 Grab & Go' : '🚚 Delivery Available') + '\n';
+    receipt += '     THANK YOU FOR CHOOSING\n';
+    receipt += '        U R B A N C I T Y\n';
+    receipt += '\n';
+    receipt += '  Served by: ' + staffDisplayName + '\n';
+    receipt += '  ' + (orderType === 'takeaway' ? 'Grab & Go' : 'Delivery Available') + '\n';
     receipt += '  📞 08105442629\n';
     receipt += '\n';
-    receipt += '  Follow us on Instagram: @urbancity\n';
-    receipt += '\n';
-    receipt += '════════════════════════════════════════════\n';
+    receipt += '  Follow us: @urbancity\n';
+    receipt += '═════════════════════════════════════\n';
     receipt += '\n\n\n';
     
     return receipt;
@@ -3393,7 +3396,7 @@ console.log(`📋 Displaying ${displayOrders.length} orders (including POS order
     }
     
     let ordersHTML = '';
-    displayOrders.forEach(order => {
+displayOrders.forEach(order => {
     const orderNumber = order.order_number || order.id;
     const customerName = order.customer_name || 'Walk-in Customer';
     const total = order.total || 0;
@@ -3402,44 +3405,50 @@ console.log(`📋 Displaying ${displayOrders.length} orders (including POS order
     const specialInstructions = order.special_instructions || '';
     const hasInstructions = specialInstructions && specialInstructions.length > 0;
 
-    console.log('Order time debug:', {
-    orderId: order.order_number,
-    created_at: order.created_at,
-    orderDate: new Date(order.created_at),
-    now: new Date(),
-    diffSeconds: Math.floor((new Date() - new Date(order.created_at)) / 1000)
-});
-    
     // ============================================
-    // ADD THIS: Check if it's a POS order
+    // CHECK IF IT'S A POS ORDER
     // ============================================
     const isPosOrder = orderNumber && orderNumber.startsWith('POS-');
     const orderLabel = isPosOrder ? '🖥️ POS' : '🌐 Web';
         
-        let timeDisplay = 'Just now';
-if (order.created_at) {
-    const orderDate = new Date(order.created_at);
-    const now = new Date();
-    const diffSeconds = Math.floor((now - orderDate) / 1000);
-    const diffMinutes = Math.floor(diffSeconds / 60);
-    const diffHours = Math.floor(diffMinutes / 60);
-    
-    if (diffSeconds < 60) {
-        timeDisplay = `Just now`;
-    } else if (diffMinutes < 60) {
-        timeDisplay = `${diffMinutes}m ${diffSeconds % 60}s ago`;
-    } else if (diffHours < 24) {
-        const remainingMinutes = diffMinutes % 60;
-        timeDisplay = `${diffHours}h ${remainingMinutes}m ago`;
-    } else {
-        timeDisplay = orderDate.toLocaleString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
+    // ============================================
+    // FIXED: Simple and accurate order time
+    // ============================================
+    let timeDisplay = 'Just now';
+    if (order.created_at) {
+        const orderDate = new Date(order.created_at);
+        const now = new Date();
+        const diffSeconds = Math.floor((now - orderDate) / 1000);
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        const diffHours = Math.floor(diffMinutes / 60);
+        
+        console.log('Order time debug:', {
+            orderId: order.order_number,
+            created_at: order.created_at,
+            orderDate: orderDate.toLocaleString(),
+            now: now.toLocaleString(),
+            diffSeconds: diffSeconds,
+            diffMinutes: diffMinutes,
+            diffHours: diffHours
         });
+        
+        if (diffSeconds < 60) {
+            timeDisplay = `Just now`;
+        } else if (diffMinutes < 60) {
+            const remainingSeconds = diffSeconds % 60;
+            timeDisplay = `${diffMinutes}m ${remainingSeconds}s ago`;
+        } else if (diffHours < 24) {
+            const remainingMinutes = diffMinutes % 60;
+            timeDisplay = `${diffHours}h ${remainingMinutes}m ago`;
+        } else {
+            timeDisplay = orderDate.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
     }
-}
         
         let statusBadge = '';
         let statusColor = '';
@@ -3567,7 +3576,7 @@ async sendEmailNotification(email, orderNumber, message) {
         const emailData = {
             to_email: email,
             subject: `UrbanCity - Order #${orderNumber} Update`,
-            message: `Hello,\n\n${message}\n\nOrder #: ${orderNumber}\n\nThank you for choosing UrbanCity!\n\n📞 08105442629`
+            message: `Hello,\n\n${message}\n\nOrder #: ${orderNumber}\n\nThank you for choosing UrbanCity!\n\n📞 07079110851`
         };
         
         // Uncomment after setting up EmailJS
@@ -4274,7 +4283,7 @@ async function sendOrderStatusNotification(orderId, newStatus) {
     const msg = statusMessages[newStatus];
     if (!msg) return;
     
-    const fullMessage = `UrbanCity Restaurant 🍽️\n\nOrder #${order.order_number}\n${msg.message}\n\nThank you for ordering with us!\n📞 Questions? Call 08105442629`;
+    const fullMessage = `UrbanCity Restaurant 🍽️\n\nOrder #${order.order_number}\n${msg.message}\n\nThank you for ordering with us!\n📞 Questions? Call 07079110851`;
     
     // 1. Send Email via EmailJS
     if (order.customer_email) {
